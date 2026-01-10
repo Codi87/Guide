@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Guida CRI – Prenotazioni</title>
+  <title>Guide CRI Pesaro</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -11,7 +11,7 @@
     <div class="nav">
       <div class="brand">
         <img class="logo-img" src="./logo.png" alt="Logo" />
-        Guida CRI
+        Guide CRI Pesaro
       </div>
       <div class="links">
         <a class="pill" href="./dashboard.html">Dashboard</a>
@@ -19,21 +19,65 @@
     </div>
 
     <section class="hero">
-      <h1>Prenotazioni guide, senza caos.</h1>
-      <p>Gli istruttori impostano disponibilità (giorni + fasce). I volontari si prenotano sugli slot liberi.</p>
+      <h1>Guide CRI Pesaro</h1>
+      <p>Prenota le guide negli slot disponibili. Gli istruttori inseriscono disponibilità e gestiscono gli iscritti.</p>
       <div class="row" style="margin-top:16px;">
-        <a class="btn primary" href="./dashboard.html">Apri Dashboard</a>
-        <span class="badge">Static + Supabase</span>
+        <a class="btn primary" href="./dashboard.html">Entra</a>
       </div>
     </section>
 
-    <div class="grid grid-3" style="margin-top:14px;">
-      <div class="card"><h2>Istruttori</h2><div class="muted">Gestiscono disponibilità e vedono chi è prenotato (nome+telefono).</div></div>
-      <div class="card"><h2>Volontari</h2><div class="muted">Vedono disponibilità istruttori e le proprie prenotazioni.</div></div>
-      <div class="card"><h2>Semplice</h2><div class="muted">Login dentro la dashboard: inserisci email e ricevi un link.</div></div>
-    </div>
+    <div class="grid grid-2" style="margin-top:14px;">
+      <div class="card">
+        <h2>Istruttori</h2>
+        <div class="muted">Contatti istruttori (nome e telefono).</div>
+        <div id="instrToast" class="toast" style="display:none;"></div>
+        <div id="instrList" class="list"></div>
+      </div>
 
-    <div class="footer-note">Carica un file chiamato <b>logo.png</b> nella stessa cartella per vedere il logo.</div>
+      <div class="card">
+        <h2>Come funziona</h2>
+        <div class="muted">
+          1) Accedi con email • 2) Inserisci Nome e Telefono • 3) Prenota uno slot libero.
+        </div>
+      </div>
+    </div>
   </div>
+
+  <script type="module">
+    import { supabase } from "./app.js";
+
+    const list = document.querySelector("#instrList");
+    const toast = document.querySelector("#instrToast");
+
+    function show(msg, type){
+      toast.style.display = "block";
+      toast.className = `toast ${type||""}`;
+      toast.textContent = msg;
+    }
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, phone, role")
+        .in("role", ["instructor","admin"])
+        .order("full_name", { ascending:true });
+
+      if(error) return show(error.message, "bad");
+      if(!data || data.length === 0) return show("Nessun istruttore inserito.", "");
+
+      data.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `
+          <div>
+            <strong>${p.full_name || "Istruttore"}</strong>
+            <div class="meta">Telefono: ${p.phone || "—"}</div>
+          </div>
+          <span class="badge">${p.role === "admin" ? "admin" : "istruttore"}</span>
+        `;
+        list.appendChild(div);
+      });
+    })();
+  </script>
 </body>
 </html>

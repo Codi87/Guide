@@ -1,4 +1,4 @@
-import { supabase, qs, fmtTime, ensureProfile, logout } from "./app.js";
+import { supabase, qs, fmtTime, ensureProfile, logout, slotStartDateTime, fmtDateIT } from "./app.js";
 
 const logoutBtn = qs("#logoutBtn");
 logoutBtn.addEventListener("click", logout);
@@ -20,39 +20,44 @@ function show(el, msg, type){
   el.textContent = msg;
 }
 function hide(el){ el.style.display = "none"; }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
 
+function todayISO(){
+  return new Date().toISOString().slice(0,10);
+}
 function timeToMinutes(t){ const [h,m]=t.split(":").map(Number); return h*60+m; }
 function minutesToTime(min){
   const h=Math.floor(min/60), m=min%60;
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
 }
+function isFutureSlot(s){
+  return slotStartDateTime(s.day, s.start_time).getTime() >= Date.now();
+}
 
 let user = null;
 
-async function loadMySlots(){
+async function loadMyFutureSlots(){
   hide(listToast);
   slotList.innerHTML = "";
-
-  const day = dayEl.value;
 
   const { data, error } = await supabase
     .from("slots")
     .select("id, day, start_time, end_time, status")
     .eq("instructor_id", user.id)
-    .eq("day", day)
-    .order("start_time");
+    .order("day", { ascending:true })
+    .order("start_time", { ascending:true });
 
   if(error) return show(listToast, error.message, "bad");
-  if(!data || data.length === 0) return show(listToast, "Nessuno slot creato per questo giorno.", "");
 
-  data.forEach(s => {
+  const future = (data || []).filter(isFutureSlot);
+  if(future.length === 0) return;
+
+  future.forEach(s => {
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
       <div>
-        <strong>${fmtTime(s.start_time)}–${fmtTime(s.end_time)}</strong>
-        <div class="meta">${s.day} • Stato: ${s.status}</div>
+        <strong>${fmtDateIT(s.day)} • ${fmtTime(s.start_time)}–${fmtTime(s.end_time)}</strong>
+        <div class="meta">Stato: ${s.status}</div>
       </div>
       <div class="row">
         <button class="btn">${s.status === "OPEN" ? "Chiudi" : "Apri"}</button>
@@ -66,13 +71,13 @@ async function loadMySlots(){
       const next = s.status === "OPEN" ? "CLOSED" : "OPEN";
       const { error } = await supabase.from("slots").update({ status: next }).eq("id", s.id);
       if(error) show(listToast, error.message, "bad");
-      else { show(listToast, "Aggiornato ✅", "ok"); await loadMySlots(); }
+      else { show(listToast, "Aggiornato ✅", "ok"); await loadMyFutureSlots(); }
     });
 
     delBtn.addEventListener("click", async () => {
       const { error } = await supabase.from("slots").delete().eq("id", s.id);
       if(error) show(listToast, error.message, "bad");
-      else { show(listToast, "Eliminato.", ""); await loadMySlots(); }
+      else { show(listToast, "Eliminato.", ""); await loadMyFutureSlots(); }
     });
 
     slotList.appendChild(div);
@@ -106,7 +111,7 @@ createBtn.addEventListener("click", async () => {
 
   const { error } = await supabase.from("slots").insert(rows);
   if(error) show(toast, error.message, "bad");
-  else { show(toast, `Creati ${rows.length} slot ✅`, "ok"); await loadMySlots(); }
+  else { show(toast, `Creati ${rows.length} slot ✅`, "ok"); await loadMyFutureSlots(); }
 });
 
 (async () => {
@@ -126,7 +131,5 @@ createBtn.addEventListener("click", async () => {
     return;
   }
 
-  await loadMySlots();
+  await loadMyFutureSlots();
 })();
-
-dayEl.addEventListener("change", loadMySlots);

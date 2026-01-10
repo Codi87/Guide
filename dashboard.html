@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dashboard – Guida CRI</title>
+  <title>Guide CRI Pesaro</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -11,111 +11,73 @@
     <div class="nav">
       <div class="brand">
         <img class="logo-img" src="./logo.png" alt="Logo" />
-        Guida CRI
+        Guide CRI Pesaro
       </div>
       <div class="links">
-        <a class="pill" href="./index.html">Home</a>
-        <a class="pill" href="./instructor.html" id="instrLink" style="display:none;">Disponibilità</a>
-        <button class="btn" id="logoutBtn" style="display:none;">Esci</button>
+        <a class="pill" href="./dashboard.html">Dashboard</a>
       </div>
     </div>
 
     <section class="hero">
-      <div class="row" style="justify-content:space-between;">
-        <div>
-          <h1 style="font-size:30px;">Dashboard</h1>
-          <p id="who" class="muted"></p>
-        </div>
-        <span class="badge" id="roleBadge" style="display:none;"></span>
+      <h1>Guide CRI Pesaro</h1>
+      <p>Prenota le guide negli slot disponibili. Gli istruttori inseriscono disponibilità e gestiscono gli iscritti.</p>
+      <div class="row" style="margin-top:16px;">
+        <a class="btn primary" href="./dashboard.html">Entra</a>
       </div>
     </section>
 
-    <!-- LOGIN INLINE -->
-    <div id="loginCard" class="card" style="display:none; margin-top:14px;">
-      <h2>Accedi</h2>
-      <div class="muted">Inserisci email e ti invio un link. Dopo sei dentro.</div>
-      <div class="grid grid-2" style="margin-top:12px;">
-        <div class="field">
-          <label>Email</label>
-          <input id="loginEmail" class="input" placeholder="nome@crocerossa.it" />
-        </div>
-        <div class="field">
-          <label>&nbsp;</label>
-          <button id="loginBtn" class="btn primary">Invia link</button>
-        </div>
-      </div>
-      <div id="loginToast" class="toast" style="display:none;"></div>
-    </div>
-
-    <!-- APP (solo loggato) -->
-    <div id="appWrap" style="display:none;">
-
-      <div class="card" style="margin-top:14px;">
-        <h2>Il tuo profilo</h2>
-        <div class="muted">Nome e telefono saranno visibili agli istruttori solo quando prenoti un loro slot.</div>
-
-        <div class="grid grid-2" style="margin-top:12px;">
-          <div class="field">
-            <label>Nome e Cognome</label>
-            <input id="fullName" class="input" placeholder="Mario Rossi" />
-          </div>
-          <div class="field">
-            <label>Telefono</label>
-            <input id="phone" class="input" placeholder="+39 333 1234567" />
-          </div>
-        </div>
-
-        <div class="row" style="margin-top:12px;">
-          <button id="saveProfileBtn" class="btn primary">Salva</button>
-        </div>
-
-        <div id="profileToast" class="toast" style="display:none;"></div>
-      </div>
-
-      <div class="card" style="margin-top:14px;">
-        <h2>Disponibilità istruttori</h2>
-        <div class="muted">Esempio: Francesco Codignola — 11/01/2026 — 09:00–12:00</div>
-        <div id="availToast" class="toast" style="display:none;"></div>
-        <div id="availList" class="list"></div>
-      </div>
-
-      <div class="grid grid-2" style="margin-top:14px;">
-        <div class="card">
-          <h2>Prenota uno slot</h2>
-          <div class="muted">Seleziona il giorno e prenota (utente preso dalla sessione).</div>
-
-          <div class="grid" style="margin-top:12px;">
-            <div class="field">
-              <label>Giorno</label>
-              <input id="day" class="input" type="date" />
-            </div>
-
-            <button id="refreshBtn" class="btn">Aggiorna elenco</button>
-
-            <div id="slotToast" class="toast" style="display:none;"></div>
-            <div id="slotList" class="list"></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2>Le mie prenotazioni</h2>
-          <div class="muted">Vedi e annulla le prenotazioni effettuate.</div>
-          <div id="myToast" class="toast" style="display:none;"></div>
-          <div id="myList" class="list"></div>
-        </div>
-      </div>
-
-      <div id="instrBox" class="card" style="margin-top:14px; display:none;">
-        <h2>Iscritti ai miei slot (giorno selezionato)</h2>
-        <div class="muted">Solo istruttori: Nome + Telefono per ogni orario.</div>
+    <div class="grid grid-2" style="margin-top:14px;">
+      <div class="card">
+        <h2>Istruttori</h2>
+        <div class="muted">Contatti istruttori (nome e telefono).</div>
         <div id="instrToast" class="toast" style="display:none;"></div>
         <div id="instrList" class="list"></div>
       </div>
 
-      <div class="footer-note">Carica <b>logo.png</b> nella root per il logo.</div>
+      <div class="card">
+        <h2>Come funziona</h2>
+        <div class="muted">
+          1) Accedi con email • 2) Inserisci Nome e Telefono • 3) Prenota uno slot libero.
+        </div>
+      </div>
     </div>
   </div>
 
-  <script type="module" src="./dashboard.js"></script>
+  <script type="module">
+    import { supabase } from "./app.js";
+
+    const list = document.querySelector("#instrList");
+    const toast = document.querySelector("#instrToast");
+
+    function show(msg, type){
+      toast.style.display = "block";
+      toast.className = `toast ${type||""}`;
+      toast.textContent = msg;
+    }
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, phone, role")
+        .in("role", ["instructor","admin"])
+        .order("full_name", { ascending:true });
+
+      if(error) return show(error.message, "bad");
+      if(!data || data.length === 0) return show("Nessun istruttore inserito.", "");
+
+      data.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `
+          <div>
+            <strong>${p.full_name || "Istruttore"}</strong>
+            <div class="meta">Telefono: ${p.phone || "—"}</div>
+          </div>
+          <span class="badge">${p.role === "admin" ? "admin" : "istruttore"}</span>
+        `;
+        list.appendChild(div);
+      });
+    })();
+  </script>
 </body>
 </html>

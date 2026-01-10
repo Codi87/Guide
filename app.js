@@ -13,6 +13,19 @@ export function fmtDateIT(iso){ // YYYY-MM-DD -> DD/MM/YYYY
   return `${d}/${m}/${y}`;
 }
 
+export function roleLabel(role){
+  if(role === "instructor") return "istruttore";
+  if(role === "volunteer") return "volontario";
+  if(role === "admin") return "admin";
+  return role || "";
+}
+
+export function slotStartDateTime(day, startTime){
+  // day: YYYY-MM-DD, startTime: HH:MM:SS or HH:MM
+  const t = (startTime || "").slice(0,5);
+  return new Date(`${day}T${t}:00`);
+}
+
 export async function logout(){
   await supabase.auth.signOut();
   window.location.href = "/";
@@ -23,7 +36,6 @@ export async function ensureProfile(){
   const user = u.user;
   if(!user) return null;
 
-  // leggi profilo
   const { data: existing } = await supabase
     .from("profiles")
     .select("role, full_name, phone")
@@ -31,7 +43,6 @@ export async function ensureProfile(){
     .maybeSingle();
 
   if(!existing){
-    // crea solo se non esiste
     await supabase.from("profiles").insert({
       user_id: user.id,
       full_name: user.email,
@@ -46,5 +57,10 @@ export async function ensureProfile(){
     .eq("user_id", user.id)
     .maybeSingle();
 
-  return { user, role: prof?.role ?? "volunteer", full_name: prof?.full_name ?? user.email, phone: prof?.phone ?? "" };
+  return {
+    user,
+    role: prof?.role ?? "volunteer",
+    full_name: prof?.full_name ?? user.email,
+    phone: prof?.phone ?? ""
+  };
 }

@@ -1,4 +1,4 @@
-import { supabase, qs, fmtTime, fmtDateIT, ensureProfile, logout } from "./app.js";
+import { supabase, qs, fmtTime, fmtDateIT, ensureProfile, logout, roleLabel, slotStartDateTime } from "./app.js";
 
 const instrLink = qs("#instrLink");
 const logoutBtn = qs("#logoutBtn");
@@ -17,16 +17,17 @@ const phoneEl = qs("#phone");
 const saveProfileBtn = qs("#saveProfileBtn");
 const profileToast = qs("#profileToast");
 
-const dayEl = qs("#day");
 const refreshBtn = qs("#refreshBtn");
-const slotList = qs("#slotList");
-const slotToast = qs("#slotToast");
-
-const myList = qs("#myList");
-const myToast = qs("#myToast");
 
 const availList = qs("#availList");
 const availToast = qs("#availToast");
+
+const slotList = qs("#slotList");
+const slotToast = qs("#slotToast");
+
+const myBox = qs("#myBox");
+const myList = qs("#myList");
+const myToast = qs("#myToast");
 
 const instrBox = qs("#instrBox");
 const instrList = qs("#instrList");
@@ -40,7 +41,6 @@ function showToast(el, msg, type){
   el.textContent = msg;
 }
 function hideToast(el){ el.style.display = "none"; }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
 
 async function sendOtp(email){
   loginBtn.disabled = true;
@@ -51,7 +51,7 @@ async function sendOtp(email){
   });
   loginBtn.disabled = false;
   if(error) showToast(loginToast, error.message, "bad");
-  else showToast(loginToast, "Link inviato ✅ Controlla email (anche Spam) e clicca per entrare.", "ok");
+  else showToast(loginToast, "Link inviato ✅ Controlla email e clicca per entrare.", "ok");
 }
 
 loginBtn.addEventListener("click", async () => {
@@ -64,7 +64,6 @@ loginBtn.addEventListener("click", async () => {
 let currentUser = null;
 let role = "volunteer";
 
-// Helpers: carica nomi istruttori per un set di ids
 async function fetchProfilesMap(userIds){
   const map = new Map();
   if(!userIds || userIds.length === 0) return map;
@@ -75,7 +74,6 @@ async function fetchProfilesMap(userIds){
     .in("user_id", userIds);
 
   if(error) return map;
-
   (data || []).forEach(p => map.set(p.user_id, p));
   return map;
 }
@@ -121,64 +119,75 @@ saveProfileBtn.addEventListener("click", async () => {
   else showToast(profileToast, "Salvato ✅", "ok");
 });
 
-async function loadInstructorAvailability(){
+function isFutureSlot(s){
+  const dt = slotStartDateTime(s.day, s.start_time);
+  return dt.getTime() >= Date.now();
+}
+
+async function loadInstructorAvailabilityFuture(){
   hideToast(availToast);
   availList.innerHTML = "";
-  const day = dayEl.value;
 
+  // prendo tutti gli slot OPEN e filtro i passati lato JS
   const { data: slots, error } = await supabase
     .from("slots")
     .select("id, day, start_time, end_time, instructor_id, status")
-    .eq("day", day)
     .eq("status", "OPEN")
-    .order("start_time");
+    .order("day", { ascending:true })
+    .order("start_time", { ascending:true });
 
   if(error) return showToast(availToast, error.message, "bad");
-  if(!slots || slots.length === 0) return showToast(availToast, "Nessuna disponibilità per questo giorno.", "");
 
-  const instructorIds = [...new Set(slots.map(s => s.instructor_id).filter(Boolean))];
+  const future = (slots || []).filter(isFutureSlot);
+  if(future.length === 0) return; // niente testo “nessuna disponibilità”
+
+  const instructorIds = [...new Set(future.map(s => s.instructor_id).filter(Boolean))];
   const profMap = await fetchProfilesMap(instructorIds);
 
-  const byName = new Map();
-  for(const s of slots){
+  // group by instructor + day
+  const groups = new Map();
+  for(const s of future){
     const p = profMap.get(s.instructor_id);
     const name = p?.full_name || "Istruttore";
-    if(!byName.has(name)) byName.set(name, []);
-    byName.get(name).push(s);
+    const key = `${name}||${s.day}`;
+    if(!groups.has(key)) groups.set(key, { name, day: s.day, slots: [] });
+    groups.get(key).slots.push(s);
   }
 
-  for(const [name, group] of byName.entries()){
-    const ranges = mergeRanges(group);
+  // render
+  [...groups.values()].forEach(g => {
+    const ranges = mergeRanges(g.slots);
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
       <div>
-        <strong>${name}</strong>
-        <div class="meta">${fmtDateIT(day)} — ${ranges.join(", ")}</div>
+        <strong>${g.name}</strong>
+        <div class="meta">${fmtDateIT(g.day)} — ${ranges.join(", ")}</div>
       </div>
-      <span class="badge">${group.length} slot</span>
+      <span class="badge">${g.slots.length} slot</span>
     `;
     availList.appendChild(div);
-  }
+  });
 }
 
-async function loadSlots(){
+async function loadFreeSlotsFuture(){
   hideToast(slotToast);
   slotList.innerHTML = "";
-  const day = dayEl.value;
 
   const { data: slots, error: e1 } = await supabase
     .from("slots")
     .select("id, day, start_time, end_time, instructor_id, status")
-    .eq("day", day)
     .eq("status", "OPEN")
-    .order("start_time");
+    .order("day", { ascending:true })
+    .order("start_time", { ascending:true });
 
   if(e1) return showToast(slotToast, e1.message, "bad");
-  if(!slots || slots.length === 0) return showToast(slotToast, "Nessuno slot disponibile per questo giorno.", "");
 
-  // quali sono già prenotati
-  const slotIds = slots.map(s => s.id);
+  const futureOpen = (slots || []).filter(isFutureSlot);
+  if(futureOpen.length === 0) return;
+
+  // booked?
+  const slotIds = futureOpen.map(s => s.id);
   const { data: bookedRows, error: e2 } = await supabase
     .from("bookings")
     .select("slot_id")
@@ -186,10 +195,10 @@ async function loadSlots(){
     .eq("status", "CONFIRMED");
 
   if(e2) return showToast(slotToast, e2.message, "bad");
-  const booked = new Set((bookedRows || []).map(b => b.slot_id));
 
-  const free = slots.filter(s => !booked.has(s.id));
-  if(free.length === 0) return showToast(slotToast, "Tutti gli slot sono già prenotati.", "");
+  const booked = new Set((bookedRows || []).map(b => b.slot_id));
+  const free = futureOpen.filter(s => !booked.has(s.id));
+  if(free.length === 0) return;
 
   const instructorIds = [...new Set(free.map(s => s.instructor_id).filter(Boolean))];
   const profMap = await fetchProfilesMap(instructorIds);
@@ -200,8 +209,8 @@ async function loadSlots(){
     div.className = "item";
     div.innerHTML = `
       <div>
-        <strong>${fmtTime(s.start_time)}–${fmtTime(s.end_time)}</strong>
-        <div class="meta">${fmtDateIT(s.day)} • ${instr}</div>
+        <strong>${fmtDateIT(s.day)} • ${fmtTime(s.start_time)}–${fmtTime(s.end_time)}</strong>
+        <div class="meta">${instr}</div>
       </div>
       <button class="btn primary">Prenota</button>
     `;
@@ -221,7 +230,7 @@ async function loadSlots(){
   });
 }
 
-async function loadMyBookings(){
+async function loadMyBookingsFuture(){
   hideToast(myToast);
   myList.innerHTML = "";
 
@@ -229,10 +238,11 @@ async function loadMyBookings(){
     .from("bookings")
     .select("id, status, created_at, slot_id")
     .eq("volunteer_id", currentUser.id)
+    .eq("status", "CONFIRMED")
     .order("created_at", { ascending:false });
 
   if(error) return showToast(myToast, error.message, "bad");
-  if(!rows || rows.length === 0) return showToast(myToast, "Nessuna prenotazione.", "");
+  if(!rows || rows.length === 0) return;
 
   const slotIds = [...new Set(rows.map(r => r.slot_id))];
   const { data: slots, error: sErr } = await supabase
@@ -243,21 +253,29 @@ async function loadMyBookings(){
   if(sErr) return showToast(myToast, sErr.message, "bad");
 
   const slotById = new Map((slots || []).map(s => [s.id, s]));
-  const instructorIds = [...new Set((slots || []).map(s => s.instructor_id).filter(Boolean))];
+  const future = rows.filter(r => {
+    const s = slotById.get(r.slot_id);
+    if(!s) return false;
+    return isFutureSlot(s);
+  });
+
+  if(future.length === 0) return;
+
+  const instructorIds = [...new Set(future.map(r => slotById.get(r.slot_id)?.instructor_id).filter(Boolean))];
   const profMap = await fetchProfilesMap(instructorIds);
 
-  rows.forEach(r => {
+  future.forEach(r => {
     const s = slotById.get(r.slot_id);
-    const instr = s ? (profMap.get(s.instructor_id)?.full_name || "Istruttore") : "—";
+    const instr = profMap.get(s.instructor_id)?.full_name || "Istruttore";
 
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
       <div>
-        <strong>${s ? `${fmtDateIT(s.day)} • ${fmtTime(s.start_time)}–${fmtTime(s.end_time)}` : "Slot"}</strong>
-        <div class="meta">${instr} • Stato: ${r.status}</div>
+        <strong>${fmtDateIT(s.day)} • ${fmtTime(s.start_time)}–${fmtTime(s.end_time)}</strong>
+        <div class="meta">${instr}</div>
       </div>
-      <button class="btn danger" ${r.status !== "CONFIRMED" ? "disabled" : ""}>Annulla</button>
+      <button class="btn danger">Annulla</button>
     `;
 
     div.querySelector("button").addEventListener("click", async () => {
@@ -270,28 +288,26 @@ async function loadMyBookings(){
   });
 }
 
-async function loadInstructorBookings(){
-  // solo istruttori
+async function loadInstructorBookingsFuture(){
   hideToast(instrToast);
   instrList.innerHTML = "";
 
-  const day = dayEl.value;
-
-  // 1) prendo slot dell’istruttore nel giorno
+  // slot istruttore (tutti), filtro futuri
   const { data: slots, error: sErr } = await supabase
     .from("slots")
     .select("id, day, start_time, end_time")
     .eq("instructor_id", currentUser.id)
-    .eq("day", day)
-    .order("start_time");
+    .order("day", { ascending:true })
+    .order("start_time", { ascending:true });
 
   if(sErr) return showToast(instrToast, sErr.message, "bad");
-  if(!slots || slots.length === 0) return showToast(instrToast, "Nessuno slot in questo giorno.", "");
 
-  const slotById = new Map(slots.map(s => [s.id, s]));
-  const slotIds = slots.map(s => s.id);
+  const futureSlots = (slots || []).filter(isFutureSlot);
+  if(futureSlots.length === 0) return;
 
-  // 2) prenotazioni confermate su quei slot
+  const slotById = new Map(futureSlots.map(s => [s.id, s]));
+  const slotIds = futureSlots.map(s => s.id);
+
   const { data: bookings, error: bErr } = await supabase
     .from("bookings")
     .select("id, slot_id, volunteer_id, status, created_at")
@@ -300,15 +316,15 @@ async function loadInstructorBookings(){
     .order("created_at", { ascending:true });
 
   if(bErr) return showToast(instrToast, bErr.message, "bad");
-  if(!bookings || bookings.length === 0) return showToast(instrToast, "Nessun iscritto per questo giorno.", "");
+  if(!bookings || bookings.length === 0) return;
 
-  // 3) profili volontari (nome+telefono) — permessi dalla policy
   const volunteerIds = [...new Set(bookings.map(b => b.volunteer_id).filter(Boolean))];
   const profMap = await fetchProfilesMap(volunteerIds);
 
-  // 4) render
+  // render: per slot, chi prenotato
   bookings.forEach(b => {
     const s = slotById.get(b.slot_id);
+    if(!s) return;
     const p = profMap.get(b.volunteer_id);
     const name = p?.full_name || "—";
     const phone = p?.phone || "—";
@@ -317,26 +333,37 @@ async function loadInstructorBookings(){
     div.className = "item";
     div.innerHTML = `
       <div>
-        <strong>${s ? `${fmtTime(s.start_time)}–${fmtTime(s.end_time)}` : "Slot"} • ${name}</strong>
+        <strong>${fmtDateIT(s.day)} • ${fmtTime(s.start_time)}–${fmtTime(s.end_time)} — ${name}</strong>
         <div class="meta">Telefono: ${phone}</div>
       </div>
-      <span class="badge">${fmtDateIT(day)}</span>
+      <span class="badge">Iscritto</span>
     `;
     instrList.appendChild(div);
   });
 }
 
 async function refreshAll(){
-  await loadInstructorAvailability();
-  await loadSlots();
-  await loadMyBookings();
+  await loadInstructorAvailabilityFuture();
+  await loadFreeSlotsFuture();
+
+  // volontari: vedono le proprie prenotazioni future
+  if(role !== "instructor" && role !== "admin"){
+    myBox.style.display = "block";
+    await loadMyBookingsFuture();
+  } else {
+    myBox.style.display = "none";
+  }
+
+  // istruttori: vedono iscritti futuri
   if(role === "instructor" || role === "admin"){
-    await loadInstructorBookings();
+    instrBox.style.display = "block";
+    await loadInstructorBookingsFuture();
+  } else {
+    instrBox.style.display = "none";
   }
 }
 
 refreshBtn.addEventListener("click", refreshAll);
-dayEl.addEventListener("change", refreshAll);
 
 (async () => {
   const last = localStorage.getItem("last_email");
@@ -350,7 +377,6 @@ dayEl.addEventListener("change", refreshAll);
     roleBadge.style.display = "none";
     logoutBtn.style.display = "none";
     instrLink.style.display = "none";
-    instrBox.style.display = "none";
     return;
   }
 
@@ -361,20 +387,16 @@ dayEl.addEventListener("change", refreshAll);
 
   who.textContent = `Loggato come ${currentUser.email}`;
   roleBadge.style.display = "inline-flex";
-  roleBadge.textContent = `Ruolo: ${role}`;
+  roleBadge.textContent = `Ruolo: ${roleLabel(role)}`;
   logoutBtn.style.display = "inline-flex";
 
   loginCard.style.display = "none";
   appWrap.style.display = "block";
 
-  dayEl.value = todayISO();
-
   if(role === "instructor" || role === "admin"){
     instrLink.style.display = "inline-flex";
-    instrBox.style.display = "block";
   } else {
     instrLink.style.display = "none";
-    instrBox.style.display = "none";
   }
 
   await loadProfileToUI();
