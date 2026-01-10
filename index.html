@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Guida CRI – Prenotazioni</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <div class="brand">
+        <div class="logo"></div>
+        Guida CRI
+      </div>
+      <div class="links">
+        <a class="pill" href="./login.html">Accedi</a>
+        <a class="pill" href="./dashboard.html">Dashboard</a>
+      </div>
+    </div>
+
+    <section class="hero">
+      <div class="row" style="justify-content:space-between;">
+        <div>
+          <h1>Prenotazioni guide, senza caos.</h1>
+          <p>
+            Gli istruttori impostano disponibilità (giorni + fasce orarie). I volontari si prenotano sugli slot liberi.
+            Tutto con login via email (link) e interfaccia moderna.
+          </p>
+          <div class="row" style="margin-top:16px;">
+            <a class="btn primary" href="./login.html">Accedi</a>
+            <a class="btn" href="./dashboard.html">Apri Dashboard</a>
+            <span class="badge">Supabase + static site</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid grid-3" style="margin-top:14px;">
+      <div class="card">
+        <h2>Istruttori</h2>
+        <div class="muted">Impostano disponibilità per giorno e fasce orarie. Generazione automatica slot.</div>
+      </div>
+      <div class="card">
+        <h2>Volontari</h2>
+        <div class="muted">Vedono gli slot e prenotano con un click. Niente inserimento email: usa la sessione.</div>
+      </div>
+      <div class="card">
+        <h2>Sicurezza</h2>
+        <div class="muted">Regole RLS su Supabase: ognuno vede e modifica solo ciò che gli compete.</div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      Tip: per testare istruttore vs volontario, cambia il campo <b>role</b> in Supabase → Table Editor → profiles.
+    </div>
+  </div>
+</body>
+</html>

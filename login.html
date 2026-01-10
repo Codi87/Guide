@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Accedi – Guida CRI</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <div class="brand"><div class="logo"></div>Guida CRI</div>
+      <div class="links">
+        <a class="pill" href="./index.html">Home</a>
+      </div>
+    </div>
+
+    <div class="hero" style="max-width:720px;">
+      <h1 style="font-size:30px;">Accedi</h1>
+      <p>Inserisci email: ti arriva un link. Dopo l’accesso non reinserisci più nulla.</p>
+
+      <div class="grid grid-2" style="margin-top:14px;">
+        <div class="field">
+          <label>Email</label>
+          <input id="email" class="input" placeholder="nome@crocerossa.it" />
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button id="btn" class="btn primary">Invia link</button>
+        </div>
+      </div>
+
+      <div id="toast" class="toast" style="display:none;"></div>
+      <div class="footer-note">Se non arriva: controlla Spam. Puoi anche riprovare dopo 30 secondi.</div>
+    </div>
+  </div>
+
+  <script type="module" src="./login.js"></script>
+</body>
+</html>

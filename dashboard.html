@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard – Guida CRI</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <div class="brand"><div class="logo"></div>Guida CRI</div>
+      <div class="links">
+        <a class="pill" href="./index.html">Home</a>
+        <a class="pill" href="./instructor.html" id="instrLink" style="display:none;">Istruttore</a>
+        <button class="btn" id="logoutBtn">Esci</button>
+      </div>
+    </div>
+
+    <section class="hero">
+      <div class="row" style="justify-content:space-between;">
+        <div>
+          <h1 style="font-size:30px;">Dashboard</h1>
+          <p id="who" class="muted"></p>
+        </div>
+        <span class="badge" id="roleBadge"></span>
+      </div>
+    </section>
+
+    <div class="grid grid-2" style="margin-top:14px;">
+      <div class="card">
+        <h2>Prenota uno slot</h2>
+        <div class="muted">Seleziona il giorno e prenota. L’utente è preso dalla sessione (niente email da inserire).</div>
+
+        <div class="grid" style="margin-top:12px;">
+          <div class="field">
+            <label>Giorno</label>
+            <input id="day" class="input" type="date" />
+          </div>
+
+          <button id="refreshBtn" class="btn">Aggiorna elenco</button>
+
+          <div id="slotToast" class="toast" style="display:none;"></div>
+          <div id="slotList" class="list"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Le mie prenotazioni</h2>
+        <div class="muted">Vedi e annulla le prenotazioni effettuate.</div>
+        <div id="myToast" class="toast" style="display:none;"></div>
+        <div id="myList" class="list"></div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      Se ti serve renderlo “super premium”: calendario grafico, filtri sede/istruttore, animazioni e dark-mode toggle.
+    </div>
+  </div>
+
+  <script type="module" src="./dashboard.js"></script>
+</body>
+</html>
