@@ -1,4 +1,4 @@
-import { supabase, qs, fmtTime, ensureProfile, logout, slotStartDateTime, fmtDateIT } from "./app.js";
+import { supabase, qs, fmtTime, ensureProfile, logout, slotStartDateTime, fmtDateIT } from "/app.js";
 
 const logoutBtn = qs("#logoutBtn");
 logoutBtn.addEventListener("click", logout);
@@ -21,9 +21,7 @@ function show(el, msg, type){
 }
 function hide(el){ el.style.display = "none"; }
 
-function todayISO(){
-  return new Date().toISOString().slice(0,10);
-}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
 function timeToMinutes(t){ const [h,m]=t.split(":").map(Number); return h*60+m; }
 function minutesToTime(min){
   const h=Math.floor(min/60), m=min%60;

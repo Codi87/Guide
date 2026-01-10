@@ -1,4 +1,4 @@
-import { supabase, qs, fmtTime, fmtDateIT, ensureProfile, logout, roleLabel, slotStartDateTime } from "./app.js";
+import { supabase, qs, fmtTime, fmtDateIT, ensureProfile, logout, roleLabel, slotStartDateTime, SITE_ORIGIN } from "/app.js";
 
 const instrLink = qs("#instrLink");
 const logoutBtn = qs("#logoutBtn");
@@ -47,7 +47,7 @@ async function sendOtp(email){
   showToast(loginToast, "Invio link…", "");
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: `${window.location.origin}/dashboard.html` }
+    options: { emailRedirectTo: `${SITE_ORIGIN}/dashboard.html` }
   });
   loginBtn.disabled = false;
   if(error) showToast(loginToast, error.message, "bad");
@@ -120,15 +120,13 @@ saveProfileBtn.addEventListener("click", async () => {
 });
 
 function isFutureSlot(s){
-  const dt = slotStartDateTime(s.day, s.start_time);
-  return dt.getTime() >= Date.now();
+  return slotStartDateTime(s.day, s.start_time).getTime() >= Date.now();
 }
 
 async function loadInstructorAvailabilityFuture(){
   hideToast(availToast);
   availList.innerHTML = "";
 
-  // prendo tutti gli slot OPEN e filtro i passati lato JS
   const { data: slots, error } = await supabase
     .from("slots")
     .select("id, day, start_time, end_time, instructor_id, status")
@@ -139,12 +137,11 @@ async function loadInstructorAvailabilityFuture(){
   if(error) return showToast(availToast, error.message, "bad");
 
   const future = (slots || []).filter(isFutureSlot);
-  if(future.length === 0) return; // niente testo “nessuna disponibilità”
+  if(future.length === 0) return;
 
   const instructorIds = [...new Set(future.map(s => s.instructor_id).filter(Boolean))];
   const profMap = await fetchProfilesMap(instructorIds);
 
-  // group by instructor + day
   const groups = new Map();
   for(const s of future){
     const p = profMap.get(s.instructor_id);
@@ -154,7 +151,6 @@ async function loadInstructorAvailabilityFuture(){
     groups.get(key).slots.push(s);
   }
 
-  // render
   [...groups.values()].forEach(g => {
     const ranges = mergeRanges(g.slots);
     const div = document.createElement("div");
@@ -186,7 +182,6 @@ async function loadFreeSlotsFuture(){
   const futureOpen = (slots || []).filter(isFutureSlot);
   if(futureOpen.length === 0) return;
 
-  // booked?
   const slotIds = futureOpen.map(s => s.id);
   const { data: bookedRows, error: e2 } = await supabase
     .from("bookings")
@@ -255,13 +250,12 @@ async function loadMyBookingsFuture(){
   const slotById = new Map((slots || []).map(s => [s.id, s]));
   const future = rows.filter(r => {
     const s = slotById.get(r.slot_id);
-    if(!s) return false;
-    return isFutureSlot(s);
+    return s && isFutureSlot(s);
   });
 
   if(future.length === 0) return;
 
-  const instructorIds = [...new Set(future.map(r => slotById.get(r.slot_id)?.instructor_id).filter(Boolean))];
+  const instructorIds = [...new Set(future.map(r => slotById.get(r.slot_id).instructor_id).filter(Boolean))];
   const profMap = await fetchProfilesMap(instructorIds);
 
   future.forEach(r => {
@@ -292,7 +286,6 @@ async function loadInstructorBookingsFuture(){
   hideToast(instrToast);
   instrList.innerHTML = "";
 
-  // slot istruttore (tutti), filtro futuri
   const { data: slots, error: sErr } = await supabase
     .from("slots")
     .select("id, day, start_time, end_time")
@@ -321,7 +314,6 @@ async function loadInstructorBookingsFuture(){
   const volunteerIds = [...new Set(bookings.map(b => b.volunteer_id).filter(Boolean))];
   const profMap = await fetchProfilesMap(volunteerIds);
 
-  // render: per slot, chi prenotato
   bookings.forEach(b => {
     const s = slotById.get(b.slot_id);
     if(!s) return;
@@ -346,20 +338,14 @@ async function refreshAll(){
   await loadInstructorAvailabilityFuture();
   await loadFreeSlotsFuture();
 
-  // volontari: vedono le proprie prenotazioni future
-  if(role !== "instructor" && role !== "admin"){
-    myBox.style.display = "block";
-    await loadMyBookingsFuture();
-  } else {
-    myBox.style.display = "none";
-  }
-
-  // istruttori: vedono iscritti futuri
   if(role === "instructor" || role === "admin"){
+    myBox.style.display = "none";
     instrBox.style.display = "block";
     await loadInstructorBookingsFuture();
   } else {
     instrBox.style.display = "none";
+    myBox.style.display = "block";
+    await loadMyBookingsFuture();
   }
 }
 
@@ -393,11 +379,7 @@ refreshBtn.addEventListener("click", refreshAll);
   loginCard.style.display = "none";
   appWrap.style.display = "block";
 
-  if(role === "instructor" || role === "admin"){
-    instrLink.style.display = "inline-flex";
-  } else {
-    instrLink.style.display = "none";
-  }
+  instrLink.style.display = (role === "instructor" || role === "admin") ? "inline-flex" : "none";
 
   await loadProfileToUI();
   await refreshAll();
