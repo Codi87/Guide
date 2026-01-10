@@ -4,20 +4,15 @@ const logoutBtn = qs("#logoutBtn");
 logoutBtn.addEventListener("click", logout);
 
 const guard = qs("#guard");
-
 const dayEl = qs("#day");
 const startEl = qs("#start");
 const endEl = qs("#end");
 const durationEl = qs("#duration");
-const noteEl = qs("#note");
 const createBtn = qs("#createBtn");
 const toast = qs("#toast");
 
 const listToast = qs("#listToast");
 const slotList = qs("#slotList");
-
-const bookToast = qs("#bookToast");
-const bookList = qs("#bookList");
 
 function show(el, msg, type){
   el.style.display = "block";
@@ -25,21 +20,15 @@ function show(el, msg, type){
   el.textContent = msg;
 }
 function hide(el){ el.style.display = "none"; }
-
 function todayISO(){ return new Date().toISOString().slice(0,10); }
 
-function timeToMinutes(t){
-  const [h,m] = t.split(":").map(Number);
-  return h*60 + m;
-}
+function timeToMinutes(t){ const [h,m]=t.split(":").map(Number); return h*60+m; }
 function minutesToTime(min){
-  const h = Math.floor(min/60);
-  const m = min%60;
+  const h=Math.floor(min/60), m=min%60;
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
 }
 
 let user = null;
-let role = "volunteer";
 
 async function loadMySlots(){
   hide(listToast);
@@ -77,74 +66,16 @@ async function loadMySlots(){
       const next = s.status === "OPEN" ? "CLOSED" : "OPEN";
       const { error } = await supabase.from("slots").update({ status: next }).eq("id", s.id);
       if(error) show(listToast, error.message, "bad");
-      else { show(listToast, "Aggiornato ✅", "ok"); await loadMySlots(); await loadBookingsForDay(); }
+      else { show(listToast, "Aggiornato ✅", "ok"); await loadMySlots(); }
     });
 
     delBtn.addEventListener("click", async () => {
       const { error } = await supabase.from("slots").delete().eq("id", s.id);
       if(error) show(listToast, error.message, "bad");
-      else { show(listToast, "Eliminato.", ""); await loadMySlots(); await loadBookingsForDay(); }
+      else { show(listToast, "Eliminato.", ""); await loadMySlots(); }
     });
 
     slotList.appendChild(div);
-  });
-}
-
-async function loadBookingsForDay(){
-  bookList.innerHTML = "";
-  hide(bookToast);
-
-  const day = dayEl.value;
-
-  const { data: slots, error: sErr } = await supabase
-    .from("slots")
-    .select("id, day, start_time, end_time")
-    .eq("instructor_id", user.id)
-    .eq("day", day);
-
-  if(sErr) return show(bookToast, sErr.message, "bad");
-  if(!slots || slots.length === 0) return show(bookToast, "Nessuno slot in questo giorno.", "");
-
-  const slotById = new Map(slots.map(s => [s.id, s]));
-  const slotIds = slots.map(s => s.id);
-
-  const { data: bookings, error: bErr } = await supabase
-    .from("bookings")
-    .select("id, slot_id, volunteer_id, status, created_at")
-    .in("slot_id", slotIds)
-    .eq("status", "CONFIRMED")
-    .order("created_at", { ascending: true });
-
-  if(bErr) return show(bookToast, bErr.message, "bad");
-  if(!bookings || bookings.length === 0) return show(bookToast, "Nessuna prenotazione per questo giorno.", "");
-
-  const volunteerIds = [...new Set(bookings.map(b => b.volunteer_id))];
-
-  const { data: people, error: pErr } = await supabase
-    .from("profiles")
-    .select("user_id, full_name")
-    .in("user_id", volunteerIds);
-
-  if(pErr) return show(bookToast, pErr.message, "bad");
-
-  const nameById = new Map((people || []).map(p => [p.user_id, p.full_name || "—"]));
-
-  bookings.forEach(b => {
-    const s = slotById.get(b.slot_id);
-    const name = nameById.get(b.volunteer_id) || "—";
-
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <div>
-        <strong>${name}</strong>
-        <div class="meta">
-          Slot: ${s?.day ?? ""} • ${fmtTime(s?.start_time)}–${fmtTime(s?.end_time)}
-        </div>
-      </div>
-      <span class="badge">Confermato</span>
-    `;
-    bookList.appendChild(div);
   });
 }
 
@@ -175,39 +106,27 @@ createBtn.addEventListener("click", async () => {
 
   const { error } = await supabase.from("slots").insert(rows);
   if(error) show(toast, error.message, "bad");
-  else {
-    show(toast, `Creati ${rows.length} slot ✅`, "ok");
-    await loadMySlots();
-    await loadBookingsForDay();
-  }
+  else { show(toast, `Creati ${rows.length} slot ✅`, "ok"); await loadMySlots(); }
 });
 
 (async () => {
   const { data } = await supabase.auth.getSession();
-  if(!data.session){
-    window.location.href = "/dashboard.html";
-    return;
-  }
+  if(!data.session){ window.location.href = "/dashboard.html"; return; }
 
   user = data.session.user;
-
   const prof = await ensureProfile();
-  role = prof?.role ?? "volunteer";
+  const role = prof?.role ?? "volunteer";
 
   dayEl.value = todayISO();
 
   if(role !== "instructor" && role !== "admin"){
     guard.style.display = "block";
-    guard.textContent = "Questa pagina è solo per istruttori. Imposta role=instructor su Supabase (profiles).";
+    guard.textContent = "Solo istruttori. Imposta role=instructor su Supabase (profiles).";
     createBtn.disabled = true;
     return;
   }
 
   await loadMySlots();
-  await loadBookingsForDay();
 })();
 
-dayEl.addEventListener("change", async () => {
-  await loadMySlots();
-  await loadBookingsForDay();
-});
+dayEl.addEventListener("change", loadMySlots);

@@ -1,4 +1,4 @@
-import { supabase, qs, fmtTime, ensureProfile, logout } from "./app.js";
+import { supabase, qs, fmtTime, fmtDateIT, ensureProfile, logout } from "./app.js";
 
 const instrLink = qs("#instrLink");
 const logoutBtn = qs("#logoutBtn");
@@ -13,7 +13,8 @@ const loginToast = qs("#loginToast");
 const appWrap = qs("#appWrap");
 
 const fullNameEl = qs("#fullName");
-const saveNameBtn = qs("#saveNameBtn");
+const phoneEl = qs("#phone");
+const saveProfileBtn = qs("#saveProfileBtn");
 const profileToast = qs("#profileToast");
 
 const dayEl = qs("#day");
@@ -24,6 +25,13 @@ const slotToast = qs("#slotToast");
 const myList = qs("#myList");
 const myToast = qs("#myToast");
 
+const availList = qs("#availList");
+const availToast = qs("#availToast");
+
+const instrBox = qs("#instrBox");
+const instrList = qs("#instrList");
+const instrToast = qs("#instrToast");
+
 logoutBtn.addEventListener("click", logout);
 
 function showToast(el, msg, type){
@@ -32,10 +40,7 @@ function showToast(el, msg, type){
   el.textContent = msg;
 }
 function hideToast(el){ el.style.display = "none"; }
-
-function todayISO(){
-  return new Date().toISOString().slice(0,10);
-}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
 
 async function sendOtp(email){
   loginBtn.disabled = true;
@@ -62,32 +67,91 @@ loginBtn.addEventListener("click", async () => {
 let currentUser = null;
 let role = "volunteer";
 
+function mergeRanges(slots){
+  // slots: [{start_time,end_time}] -> unisci contigui
+  const toMin = (t)=>{ const [h,m]=t.slice(0,5).split(":").map(Number); return h*60+m; };
+  const toTime = (m)=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+  const arr = slots.map(s=>({a:toMin(s.start_time), b:toMin(s.end_time)})).sort((x,y)=>x.a-y.a);
+  const out = [];
+  for(const r of arr){
+    if(out.length===0 || r.a>out[out.length-1].b){
+      out.push({...r});
+    } else {
+      out[out.length-1].b = Math.max(out[out.length-1].b, r.b);
+    }
+  }
+  return out.map(r=>`${toTime(r.a)}–${toTime(r.b)}`);
+}
+
 async function loadProfileToUI(){
   hideToast(profileToast);
   const { data, error } = await supabase
     .from("profiles")
-    .select("full_name")
+    .select("full_name, phone")
     .eq("user_id", currentUser.id)
     .maybeSingle();
 
-  if(!error && data?.full_name){
-    fullNameEl.value = data.full_name;
+  if(!error && data){
+    fullNameEl.value = data.full_name ?? "";
+    phoneEl.value = data.phone ?? "";
   }
 }
 
-saveNameBtn.addEventListener("click", async () => {
+saveProfileBtn.addEventListener("click", async () => {
   hideToast(profileToast);
+
   const full_name = (fullNameEl.value || "").trim();
+  const phone = (phoneEl.value || "").trim();
+
   if(!full_name) return showToast(profileToast, "Inserisci Nome e Cognome.", "bad");
 
   const { error } = await supabase
     .from("profiles")
-    .update({ full_name })
+    .update({ full_name, phone: phone || null })
     .eq("user_id", currentUser.id);
 
   if(error) showToast(profileToast, error.message, "bad");
   else showToast(profileToast, "Salvato ✅", "ok");
 });
+
+async function loadInstructorAvailability(){
+  hideToast(availToast);
+  availList.innerHTML = "";
+
+  const day = dayEl.value;
+
+  const { data, error } = await supabase
+    .from("slots")
+    .select("id, day, start_time, end_time, instructor:profiles(full_name)")
+    .eq("day", day)
+    .eq("status", "OPEN")
+    .order("start_time");
+
+  if(error) return showToast(availToast, error.message, "bad");
+  if(!data || data.length === 0) return showToast(availToast, "Nessuna disponibilità per questo giorno.", "");
+
+  // raggruppa per istruttore e unisci fasce
+  const by = new Map();
+  for(const s of data){
+    const name = s.instructor?.full_name ?? "Istruttore";
+    if(!by.has(name)) by.set(name, []);
+    by.get(name).push(s);
+  }
+
+  for(const [name, slots] of by.entries()){
+    const ranges = mergeRanges(slots);
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <div>
+        <strong>${name}</strong>
+        <div class="meta">${fmtDateIT(day)} — ${ranges.join(", ")}</div>
+      </div>
+      <span class="badge">${slots.length} slot</span>
+    `;
+    availList.appendChild(div);
+  }
+}
 
 async function loadSlots(){
   hideToast(slotToast);
@@ -97,7 +161,7 @@ async function loadSlots(){
 
   const { data: slots, error: e1 } = await supabase
     .from("slots")
-    .select("id, day, start_time, end_time, status")
+    .select("id, day, start_time, end_time, status, instructor:profiles(full_name)")
     .eq("day", day)
     .eq("status", "OPEN")
     .order("start_time");
@@ -122,12 +186,13 @@ async function loadSlots(){
   if(free.length === 0) return showToast(slotToast, "Tutti gli slot sono già prenotati.", "");
 
   free.forEach(s => {
+    const instr = s.instructor?.full_name ?? "Istruttore";
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
       <div>
         <strong>${fmtTime(s.start_time)}–${fmtTime(s.end_time)}</strong>
-        <div class="meta">${s.day}</div>
+        <div class="meta">${fmtDateIT(s.day)} • ${instr}</div>
       </div>
       <button class="btn primary">Prenota</button>
     `;
@@ -144,8 +209,7 @@ async function loadSlots(){
       if(error) showToast(slotToast, error.message, "bad");
       else {
         showToast(slotToast, "Prenotazione confermata ✅", "ok");
-        await loadSlots();
-        await loadMyBookings();
+        await refreshAll();
       }
     });
 
@@ -159,7 +223,7 @@ async function loadMyBookings(){
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, status, created_at, slot:slots(day, start_time, end_time)")
+    .select("id, status, created_at, slot:slots(day, start_time, end_time, instructor:profiles(full_name))")
     .eq("volunteer_id", currentUser.id)
     .order("created_at", { ascending:false });
 
@@ -168,12 +232,13 @@ async function loadMyBookings(){
 
   data.forEach(r => {
     const slot = r.slot || {};
+    const instr = slot.instructor?.full_name ?? "Istruttore";
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
       <div>
-        <strong>${slot.day ?? ""} • ${fmtTime(slot.start_time)}–${fmtTime(slot.end_time)}</strong>
-        <div class="meta">Stato: ${r.status}</div>
+        <strong>${fmtDateIT(slot.day)} • ${fmtTime(slot.start_time)}–${fmtTime(slot.end_time)}</strong>
+        <div class="meta">${instr} • Stato: ${r.status}</div>
       </div>
       <button class="btn danger" ${r.status !== "CONFIRMED" ? "disabled" : ""}>Annulla</button>
     `;
@@ -181,38 +246,77 @@ async function loadMyBookings(){
     div.querySelector("button").addEventListener("click", async () => {
       const { error } = await supabase.from("bookings").update({ status:"CANCELLED" }).eq("id", r.id);
       if(error) showToast(myToast, error.message, "bad");
-      else {
-        showToast(myToast, "Prenotazione annullata.", "");
-        await loadMyBookings();
-        await loadSlots();
-      }
+      else { showToast(myToast, "Prenotazione annullata.", ""); await refreshAll(); }
     });
 
     myList.appendChild(div);
   });
 }
 
-refreshBtn.addEventListener("click", loadSlots);
+async function loadInstructorBookings(){
+  // solo istruttori
+  hideToast(instrToast);
+  instrList.innerHTML = "";
+
+  const day = dayEl.value;
+
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("id, status, slot:slots(day, start_time, end_time, instructor_id), volunteer:profiles(full_name, phone)")
+    .eq("status", "CONFIRMED")
+    .eq("slot.instructor_id", currentUser.id)
+    .eq("slot.day", day)
+    .order("created_at", { ascending:true });
+
+  if(error) return showToast(instrToast, error.message, "bad");
+  if(!data || data.length === 0) return showToast(instrToast, "Nessun iscritto per questo giorno.", "");
+
+  data.forEach(b => {
+    const s = b.slot || {};
+    const v = b.volunteer || {};
+    const name = v.full_name ?? "—";
+    const phone = v.phone ?? "—";
+
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <div>
+        <strong>${fmtTime(s.start_time)}–${fmtTime(s.end_time)} • ${name}</strong>
+        <div class="meta">Telefono: ${phone}</div>
+      </div>
+      <span class="badge">${fmtDateIT(s.day)}</span>
+    `;
+    instrList.appendChild(div);
+  });
+}
+
+async function refreshAll(){
+  await loadInstructorAvailability();
+  await loadSlots();
+  await loadMyBookings();
+  if(role === "instructor" || role === "admin"){
+    await loadInstructorBookings();
+  }
+}
+
+refreshBtn.addEventListener("click", refreshAll);
+dayEl?.addEventListener("change", refreshAll);
 
 (async () => {
-  // precompila email login
   const last = localStorage.getItem("last_email");
   if(last) loginEmail.value = last;
 
-  // sessione?
   const { data } = await supabase.auth.getSession();
-
   if(!data.session){
-    // NON loggato
     who.textContent = "Non sei loggato.";
     loginCard.style.display = "block";
     appWrap.style.display = "none";
     roleBadge.style.display = "none";
     logoutBtn.style.display = "none";
+    instrLink.style.display = "none";
     return;
   }
 
-  // LOGGATO
   currentUser = data.session.user;
 
   const prof = await ensureProfile();
@@ -226,15 +330,17 @@ refreshBtn.addEventListener("click", loadSlots);
   loginCard.style.display = "none";
   appWrap.style.display = "block";
 
-  if(role === "instructor" || role === "admin"){
-    instrLink.style.display = "inline-flex";
-  } else {
-    instrLink.style.display = "none";
-  }
-
   dayEl.value = todayISO();
 
+  // link e box istruttore
+  if(role === "instructor" || role === "admin"){
+    instrLink.style.display = "inline-flex";
+    instrBox.style.display = "block";
+  } else {
+    instrLink.style.display = "none";
+    instrBox.style.display = "none";
+  }
+
   await loadProfileToUI();
-  await loadSlots();
-  await loadMyBookings();
+  await refreshAll();
 })();

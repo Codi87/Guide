@@ -10,7 +10,7 @@
   <div class="container">
     <div class="nav">
       <div class="brand">
-        <div class="logo"></div>
+        <img class="logo-img" src="./logo.png" alt="Logo" />
         Guida CRI
       </div>
       <div class="links">
@@ -20,10 +20,7 @@
 
     <section class="hero">
       <h1>Prenotazioni guide, senza caos.</h1>
-      <p>
-        Gli istruttori impostano disponibilità (giorni + fasce orarie). I volontari si prenotano sugli slot liberi.
-        Accesso via email (link), interfaccia moderna.
-      </p>
+      <p>Gli istruttori impostano disponibilità (giorni + fasce). I volontari si prenotano sugli slot liberi.</p>
       <div class="row" style="margin-top:16px;">
         <a class="btn primary" href="./dashboard.html">Apri Dashboard</a>
         <span class="badge">Static + Supabase</span>
@@ -31,23 +28,12 @@
     </section>
 
     <div class="grid grid-3" style="margin-top:14px;">
-      <div class="card">
-        <h2>Istruttori</h2>
-        <div class="muted">Creano disponibilità per giorno e fascia oraria. Slot generati automaticamente.</div>
-      </div>
-      <div class="card">
-        <h2>Volontari</h2>
-        <div class="muted">Prenotano con un click. Nome e Cognome salvati nel profilo.</div>
-      </div>
-      <div class="card">
-        <h2>Chiaro e veloce</h2>
-        <div class="muted">Dashboard unica: se non sei loggato, ti compare il box login.</div>
-      </div>
+      <div class="card"><h2>Istruttori</h2><div class="muted">Gestiscono disponibilità e vedono chi è prenotato (nome+telefono).</div></div>
+      <div class="card"><h2>Volontari</h2><div class="muted">Vedono disponibilità istruttori e le proprie prenotazioni.</div></div>
+      <div class="card"><h2>Semplice</h2><div class="muted">Login dentro la dashboard: inserisci email e ricevi un link.</div></div>
     </div>
 
-    <div class="footer-note">
-      Tip: per impostare un istruttore, cambia <b>role</b> in Supabase → Table Editor → profiles → instructor.
-    </div>
+    <div class="footer-note">Carica il file <b>logo.png</b> nella stessa cartella per vedere il logo.</div>
   </div>
 </body>
 </html>

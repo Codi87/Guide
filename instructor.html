@@ -9,7 +9,10 @@
 <body>
   <div class="container">
     <div class="nav">
-      <div class="brand"><div class="logo"></div>Guida CRI</div>
+      <div class="brand">
+        <img class="logo-img" src="./logo.png" alt="Logo" />
+        Guida CRI
+      </div>
       <div class="links">
         <a class="pill" href="./dashboard.html">Dashboard</a>
         <button class="btn" id="logoutBtn">Esci</button>
@@ -18,7 +21,7 @@
 
     <section class="hero">
       <h1 style="font-size:30px;">Disponibilità istruttore</h1>
-      <p class="muted">Scegli giorno, fascia oraria e durata. Il sistema crea slot automaticamente.</p>
+      <p class="muted">Crea slot da una fascia oraria (es. 09:00–12:00) con durata 60 min.</p>
       <div id="guard" class="toast bad" style="display:none;"></div>
     </section>
 
@@ -43,19 +46,13 @@
             </div>
           </div>
 
-          <div class="grid grid-2">
-            <div class="field">
-              <label>Durata slot (minuti)</label>
-              <select id="duration" class="input">
-                <option value="30">30</option>
-                <option value="60" selected>60</option>
-                <option value="90">90</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Nota (facoltativa)</label>
-              <input id="note" class="input" placeholder="Es. guida in città" />
-            </div>
+          <div class="field">
+            <label>Durata slot (minuti)</label>
+            <select id="duration" class="input">
+              <option value="30">30</option>
+              <option value="60" selected>60</option>
+              <option value="90">90</option>
+            </select>
           </div>
 
           <button id="createBtn" class="btn primary">Crea slot</button>
@@ -63,20 +60,11 @@
         </div>
       </div>
 
-      <div>
-        <div class="card">
-          <h2>I miei slot (giorno selezionato)</h2>
-          <div class="muted">Puoi chiudere uno slot (CLOSED) o eliminarlo.</div>
-          <div id="listToast" class="toast" style="display:none;"></div>
-          <div id="slotList" class="list"></div>
-        </div>
-
-        <div class="card" style="margin-top:14px;">
-          <h2>Prenotazioni del giorno</h2>
-          <div class="muted">Vedi chi è iscritto ai tuoi slot (Nome e Cognome).</div>
-          <div id="bookToast" class="toast" style="display:none;"></div>
-          <div id="bookList" class="list"></div>
-        </div>
+      <div class="card">
+        <h2>I miei slot (giorno selezionato)</h2>
+        <div class="muted">Apri/chiudi o elimina slot.</div>
+        <div id="listToast" class="toast" style="display:none;"></div>
+        <div id="slotList" class="list"></div>
       </div>
     </div>
   </div>
