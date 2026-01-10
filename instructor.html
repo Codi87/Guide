@@ -53,8 +53,8 @@
               </select>
             </div>
             <div class="field">
-              <label>Sede (test)</label>
-              <input id="locationName" class="input" placeholder="Es. Roma - Eur" />
+              <label>Nota (facoltativa)</label>
+              <input id="note" class="input" placeholder="Es. guida in città" />
             </div>
           </div>
 
@@ -63,11 +63,20 @@
         </div>
       </div>
 
-      <div class="card">
-        <h2>I miei slot (giorno selezionato)</h2>
-        <div class="muted">Puoi chiudere uno slot (CLOSED) o cancellarlo.</div>
-        <div id="listToast" class="toast" style="display:none;"></div>
-        <div id="slotList" class="list"></div>
+      <div>
+        <div class="card">
+          <h2>I miei slot (giorno selezionato)</h2>
+          <div class="muted">Puoi chiudere uno slot (CLOSED) o eliminarlo.</div>
+          <div id="listToast" class="toast" style="display:none;"></div>
+          <div id="slotList" class="list"></div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+          <h2>Prenotazioni del giorno</h2>
+          <div class="muted">Vedi chi è iscritto ai tuoi slot (Nome e Cognome).</div>
+          <div id="bookToast" class="toast" style="display:none;"></div>
+          <div id="bookList" class="list"></div>
+        </div>
       </div>
     </div>
   </div>

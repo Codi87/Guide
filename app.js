@@ -8,7 +8,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export function qs(sel){ return document.querySelector(sel); }
 export function qsa(sel){ return Array.from(document.querySelectorAll(sel)); }
-
 export function fmtTime(t){ return (t || "").slice(0,5); }
 
 export async function getUser(){
@@ -16,10 +15,9 @@ export async function getUser(){
   return data.user ?? null;
 }
 
-export async function requireAuth(){
-  const user = await getUser();
-  if(!user) window.location.href = "/login.html";
-  return user;
+export async function logout(){
+  await supabase.auth.signOut();
+  window.location.href = "/";
 }
 
 export async function ensureProfile(){
@@ -27,18 +25,17 @@ export async function ensureProfile(){
   if(!user) return null;
 
   // crea profilo se non esiste (default volunteer)
-  // richiede policy INSERT su profiles (ti avevo fatto aggiungere "insert own profile")
   await supabase.from("profiles").upsert({
     user_id: user.id,
-    full_name: user.email,
+    full_name: user.email, // verrà sovrascritto dall’utente con Nome Cognome
     role: "volunteer"
   });
 
-  const { data } = await supabase.from("profiles").select("role, full_name").eq("user_id", user.id).maybeSingle();
-  return { user, role: data?.role ?? "volunteer", full_name: data?.full_name ?? user.email };
-}
+  const { data } = await supabase
+    .from("profiles")
+    .select("role, full_name")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-export async function logout(){
-  await supabase.auth.signOut();
-  window.location.href = "/";
+  return { user, role: data?.role ?? "volunteer", full_name: data?.full_name ?? user.email };
 }

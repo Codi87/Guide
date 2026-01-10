@@ -13,7 +13,7 @@
       <div class="links">
         <a class="pill" href="./index.html">Home</a>
         <a class="pill" href="./instructor.html" id="instrLink" style="display:none;">Istruttore</a>
-        <button class="btn" id="logoutBtn">Esci</button>
+        <button class="btn" id="logoutBtn" style="display:none;">Esci</button>
       </div>
     </div>
 
@@ -23,38 +23,80 @@
           <h1 style="font-size:30px;">Dashboard</h1>
           <p id="who" class="muted"></p>
         </div>
-        <span class="badge" id="roleBadge"></span>
+        <span class="badge" id="roleBadge" style="display:none;"></span>
       </div>
     </section>
 
-    <div class="grid grid-2" style="margin-top:14px;">
-      <div class="card">
-        <h2>Prenota uno slot</h2>
-        <div class="muted">Seleziona il giorno e prenota. L’utente è preso dalla sessione (niente email da inserire).</div>
+    <!-- LOGIN INLINE (semplice) -->
+    <div id="loginCard" class="card" style="display:none; margin-top:14px;">
+      <h2>Accedi</h2>
+      <div class="muted">Inserisci email e ti invio un link. Dopo sei dentro.</div>
 
-        <div class="grid" style="margin-top:12px;">
-          <div class="field">
-            <label>Giorno</label>
-            <input id="day" class="input" type="date" />
-          </div>
-
-          <button id="refreshBtn" class="btn">Aggiorna elenco</button>
-
-          <div id="slotToast" class="toast" style="display:none;"></div>
-          <div id="slotList" class="list"></div>
+      <div class="grid grid-2" style="margin-top:12px;">
+        <div class="field">
+          <label>Email</label>
+          <input id="loginEmail" class="input" placeholder="nome@crocerossa.it" />
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button id="loginBtn" class="btn primary">Invia link</button>
         </div>
       </div>
 
-      <div class="card">
-        <h2>Le mie prenotazioni</h2>
-        <div class="muted">Vedi e annulla le prenotazioni effettuate.</div>
-        <div id="myToast" class="toast" style="display:none;"></div>
-        <div id="myList" class="list"></div>
-      </div>
+      <div id="loginToast" class="toast" style="display:none;"></div>
     </div>
 
-    <div class="footer-note">
-      Se ti serve renderlo “super premium”: calendario grafico, filtri sede/istruttore, animazioni e dark-mode toggle.
+    <!-- CONTENUTO DASHBOARD (solo se loggato) -->
+    <div id="appWrap" style="display:none;">
+      <div class="card" style="margin-top:14px;">
+        <h2>Il tuo profilo</h2>
+        <div class="muted">
+          Inserisci Nome e Cognome: sarà visibile agli istruttori per riconoscerti durante le guide.
+        </div>
+
+        <div class="grid grid-2" style="margin-top:12px;">
+          <div class="field">
+            <label>Nome e Cognome</label>
+            <input id="fullName" class="input" placeholder="Mario Rossi" />
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <button id="saveNameBtn" class="btn primary">Salva</button>
+          </div>
+        </div>
+
+        <div id="profileToast" class="toast" style="display:none;"></div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:14px;">
+        <div class="card">
+          <h2>Prenota uno slot</h2>
+          <div class="muted">Seleziona il giorno e prenota. (Utente preso dalla sessione: niente email da inserire.)</div>
+
+          <div class="grid" style="margin-top:12px;">
+            <div class="field">
+              <label>Giorno</label>
+              <input id="day" class="input" type="date" />
+            </div>
+
+            <button id="refreshBtn" class="btn">Aggiorna elenco</button>
+
+            <div id="slotToast" class="toast" style="display:none;"></div>
+            <div id="slotList" class="list"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Le mie prenotazioni</h2>
+          <div class="muted">Vedi e annulla le prenotazioni effettuate.</div>
+          <div id="myToast" class="toast" style="display:none;"></div>
+          <div id="myList" class="list"></div>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        Se vuoi: filtri per sede/istruttore, calendario grafico, e vista “occupato/libero” più avanzata.
+      </div>
     </div>
   </div>
 

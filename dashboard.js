@@ -1,9 +1,20 @@
-import { supabase, qs, fmtTime, ensureProfile, requireAuth, logout } from "./app.js";
+import { supabase, qs, fmtTime, ensureProfile, logout } from "./app.js";
 
-const who = qs("#who");
-const roleBadge = qs("#roleBadge");
 const instrLink = qs("#instrLink");
 const logoutBtn = qs("#logoutBtn");
+const who = qs("#who");
+const roleBadge = qs("#roleBadge");
+
+const loginCard = qs("#loginCard");
+const loginEmail = qs("#loginEmail");
+const loginBtn = qs("#loginBtn");
+const loginToast = qs("#loginToast");
+
+const appWrap = qs("#appWrap");
+
+const fullNameEl = qs("#fullName");
+const saveNameBtn = qs("#saveNameBtn");
+const profileToast = qs("#profileToast");
 
 const dayEl = qs("#day");
 const refreshBtn = qs("#refreshBtn");
@@ -13,6 +24,8 @@ const slotToast = qs("#slotToast");
 const myList = qs("#myList");
 const myToast = qs("#myToast");
 
+logoutBtn.addEventListener("click", logout);
+
 function showToast(el, msg, type){
   el.style.display = "block";
   el.className = `toast ${type||""}`;
@@ -21,14 +34,60 @@ function showToast(el, msg, type){
 function hideToast(el){ el.style.display = "none"; }
 
 function todayISO(){
-  const d = new Date();
-  return d.toISOString().slice(0,10);
+  return new Date().toISOString().slice(0,10);
 }
 
-logoutBtn.addEventListener("click", logout);
+async function sendOtp(email){
+  loginBtn.disabled = true;
+  showToast(loginToast, "Invio link…", "");
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: `${window.location.origin}/dashboard.html` }
+  });
+
+  loginBtn.disabled = false;
+
+  if(error) showToast(loginToast, error.message, "bad");
+  else showToast(loginToast, "Link inviato ✅ Controlla email (anche Spam) e clicca per entrare.", "ok");
+}
+
+loginBtn.addEventListener("click", async () => {
+  const email = (loginEmail.value || "").trim();
+  if(!email) return showToast(loginToast, "Inserisci un’email valida.", "bad");
+  localStorage.setItem("last_email", email);
+  await sendOtp(email);
+});
 
 let currentUser = null;
 let role = "volunteer";
+
+async function loadProfileToUI(){
+  hideToast(profileToast);
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("user_id", currentUser.id)
+    .maybeSingle();
+
+  if(!error && data?.full_name){
+    fullNameEl.value = data.full_name;
+  }
+}
+
+saveNameBtn.addEventListener("click", async () => {
+  hideToast(profileToast);
+  const full_name = (fullNameEl.value || "").trim();
+  if(!full_name) return showToast(profileToast, "Inserisci Nome e Cognome.", "bad");
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ full_name })
+    .eq("user_id", currentUser.id);
+
+  if(error) showToast(profileToast, error.message, "bad");
+  else showToast(profileToast, "Salvato ✅", "ok");
+});
 
 async function loadSlots(){
   hideToast(slotToast);
@@ -36,7 +95,6 @@ async function loadSlots(){
 
   const day = dayEl.value;
 
-  // 1) slot OPEN del giorno
   const { data: slots, error: e1 } = await supabase
     .from("slots")
     .select("id, day, start_time, end_time, status")
@@ -49,7 +107,6 @@ async function loadSlots(){
     return showToast(slotToast, "Nessuno slot disponibile per questo giorno.", "");
   }
 
-  // 2) prenotazioni confermate per quegli slot (filtriamo client-side)
   const slotIds = slots.map(s => s.id);
   const { data: bookings, error: e2 } = await supabase
     .from("bookings")
@@ -135,23 +192,49 @@ async function loadMyBookings(){
   });
 }
 
-(async () => {
-  currentUser = await requireAuth();
-  const prof = await ensureProfile();
+refreshBtn.addEventListener("click", loadSlots);
 
+(async () => {
+  // precompila email login
+  const last = localStorage.getItem("last_email");
+  if(last) loginEmail.value = last;
+
+  // sessione?
+  const { data } = await supabase.auth.getSession();
+
+  if(!data.session){
+    // NON loggato
+    who.textContent = "Non sei loggato.";
+    loginCard.style.display = "block";
+    appWrap.style.display = "none";
+    roleBadge.style.display = "none";
+    logoutBtn.style.display = "none";
+    return;
+  }
+
+  // LOGGATO
+  currentUser = data.session.user;
+
+  const prof = await ensureProfile();
   role = prof?.role ?? "volunteer";
+
   who.textContent = `Loggato come ${currentUser.email}`;
+  roleBadge.style.display = "inline-flex";
   roleBadge.textContent = `Ruolo: ${role}`;
+  logoutBtn.style.display = "inline-flex";
+
+  loginCard.style.display = "none";
+  appWrap.style.display = "block";
 
   if(role === "instructor" || role === "admin"){
     instrLink.style.display = "inline-flex";
+  } else {
+    instrLink.style.display = "none";
   }
 
   dayEl.value = todayISO();
+
+  await loadProfileToUI();
   await loadSlots();
   await loadMyBookings();
 })();
-
-refreshBtn.addEventListener("click", async () => {
-  await loadSlots();
-});

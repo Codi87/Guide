@@ -14,45 +14,39 @@
         Guida CRI
       </div>
       <div class="links">
-        <a class="pill" href="./login.html">Accedi</a>
         <a class="pill" href="./dashboard.html">Dashboard</a>
       </div>
     </div>
 
     <section class="hero">
-      <div class="row" style="justify-content:space-between;">
-        <div>
-          <h1>Prenotazioni guide, senza caos.</h1>
-          <p>
-            Gli istruttori impostano disponibilità (giorni + fasce orarie). I volontari si prenotano sugli slot liberi.
-            Tutto con login via email (link) e interfaccia moderna.
-          </p>
-          <div class="row" style="margin-top:16px;">
-            <a class="btn primary" href="./login.html">Accedi</a>
-            <a class="btn" href="./dashboard.html">Apri Dashboard</a>
-            <span class="badge">Supabase + static site</span>
-          </div>
-        </div>
+      <h1>Prenotazioni guide, senza caos.</h1>
+      <p>
+        Gli istruttori impostano disponibilità (giorni + fasce orarie). I volontari si prenotano sugli slot liberi.
+        Accesso via email (link), interfaccia moderna.
+      </p>
+      <div class="row" style="margin-top:16px;">
+        <a class="btn primary" href="./dashboard.html">Apri Dashboard</a>
+        <span class="badge">Static + Supabase</span>
       </div>
     </section>
 
     <div class="grid grid-3" style="margin-top:14px;">
       <div class="card">
         <h2>Istruttori</h2>
-        <div class="muted">Impostano disponibilità per giorno e fasce orarie. Generazione automatica slot.</div>
+        <div class="muted">Creano disponibilità per giorno e fascia oraria. Slot generati automaticamente.</div>
       </div>
       <div class="card">
         <h2>Volontari</h2>
-        <div class="muted">Vedono gli slot e prenotano con un click. Niente inserimento email: usa la sessione.</div>
+        <div class="muted">Prenotano con un click. Nome e Cognome salvati nel profilo.</div>
       </div>
       <div class="card">
-        <h2>Sicurezza</h2>
-        <div class="muted">Regole RLS su Supabase: ognuno vede e modifica solo ciò che gli compete.</div>
+        <h2>Chiaro e veloce</h2>
+        <div class="muted">Dashboard unica: se non sei loggato, ti compare il box login.</div>
       </div>
     </div>
 
     <div class="footer-note">
-      Tip: per testare istruttore vs volontario, cambia il campo <b>role</b> in Supabase → Table Editor → profiles.
+      Tip: per impostare un istruttore, cambia <b>role</b> in Supabase → Table Editor → profiles → instructor.
     </div>
   </div>
 </body>
