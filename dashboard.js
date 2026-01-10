@@ -1,4 +1,7 @@
-import { supabase, qs, fmtTime, fmtDateIT, ensureProfile, logout, roleLabel, slotStartDateTime, SITE_ORIGIN } from "/app.js";
+import {
+  supabase, qs, fmtTime, fmtDateIT, ensureProfile, logout,
+  roleLabel, slotStartDateTime, SITE_ORIGIN
+} from "/app.js";
 
 const instrLink = qs("#instrLink");
 const logoutBtn = qs("#logoutBtn");
@@ -21,9 +24,6 @@ const refreshBtn = qs("#refreshBtn");
 
 const availList = qs("#availList");
 const availToast = qs("#availToast");
-
-const slotList = qs("#slotList");
-const slotToast = qs("#slotToast");
 
 const myBox = qs("#myBox");
 const myList = qs("#myList");
@@ -53,7 +53,6 @@ async function sendOtp(email){
   if(error) showToast(loginToast, error.message, "bad");
   else showToast(loginToast, "Link inviato ✅ Controlla email e clicca per entrare.", "ok");
 }
-
 loginBtn.addEventListener("click", async () => {
   const email = (loginEmail.value || "").trim();
   if(!email) return showToast(loginToast, "Inserisci un’email valida.", "bad");
@@ -78,16 +77,8 @@ async function fetchProfilesMap(userIds){
   return map;
 }
 
-function mergeRanges(slots){
-  const toMin = (t)=>{ const [h,m]=t.slice(0,5).split(":").map(Number); return h*60+m; };
-  const toTime = (m)=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
-  const arr = slots.map(s=>({a:toMin(s.start_time), b:toMin(s.end_time)})).sort((x,y)=>x.a-y.a);
-  const out = [];
-  for(const r of arr){
-    if(out.length===0 || r.a>out[out.length-1].b) out.push({...r});
-    else out[out.length-1].b = Math.max(out[out.length-1].b, r.b);
-  }
-  return out.map(r=>`${toTime(r.a)}–${toTime(r.b)}`);
+function isFutureSlot(s){
+  return slotStartDateTime(s.day, s.start_time).getTime() >= Date.now();
 }
 
 async function loadProfileToUI(){
@@ -119,69 +110,28 @@ saveProfileBtn.addEventListener("click", async () => {
   else showToast(profileToast, "Salvato ✅", "ok");
 });
 
-function isFutureSlot(s){
-  return slotStartDateTime(s.day, s.start_time).getTime() >= Date.now();
-}
-
-async function loadInstructorAvailabilityFuture(){
+/**
+ * Carica tutti gli slot OPEN futuri, calcola quali sono LIBERI (no booking CONFIRMED)
+ * e costruisce un accordion raggruppato per (istruttore + giorno).
+ */
+async function loadAvailabilityAccordion(){
   hideToast(availToast);
   availList.innerHTML = "";
 
-  const { data: slots, error } = await supabase
+  // 1) prendo OPEN
+  const { data: openSlots, error: e1 } = await supabase
     .from("slots")
     .select("id, day, start_time, end_time, instructor_id, status")
     .eq("status", "OPEN")
     .order("day", { ascending:true })
     .order("start_time", { ascending:true });
 
-  if(error) return showToast(availToast, error.message, "bad");
+  if(e1) return showToast(availToast, e1.message, "bad");
 
-  const future = (slots || []).filter(isFutureSlot);
-  if(future.length === 0) return;
-
-  const instructorIds = [...new Set(future.map(s => s.instructor_id).filter(Boolean))];
-  const profMap = await fetchProfilesMap(instructorIds);
-
-  const groups = new Map();
-  for(const s of future){
-    const p = profMap.get(s.instructor_id);
-    const name = p?.full_name || "Istruttore";
-    const key = `${name}||${s.day}`;
-    if(!groups.has(key)) groups.set(key, { name, day: s.day, slots: [] });
-    groups.get(key).slots.push(s);
-  }
-
-  [...groups.values()].forEach(g => {
-    const ranges = mergeRanges(g.slots);
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <div>
-        <strong>${g.name}</strong>
-        <div class="meta">${fmtDateIT(g.day)} — ${ranges.join(", ")}</div>
-      </div>
-      <span class="badge">${g.slots.length} slot</span>
-    `;
-    availList.appendChild(div);
-  });
-}
-
-async function loadFreeSlotsFuture(){
-  hideToast(slotToast);
-  slotList.innerHTML = "";
-
-  const { data: slots, error: e1 } = await supabase
-    .from("slots")
-    .select("id, day, start_time, end_time, instructor_id, status")
-    .eq("status", "OPEN")
-    .order("day", { ascending:true })
-    .order("start_time", { ascending:true });
-
-  if(e1) return showToast(slotToast, e1.message, "bad");
-
-  const futureOpen = (slots || []).filter(isFutureSlot);
+  const futureOpen = (openSlots || []).filter(isFutureSlot);
   if(futureOpen.length === 0) return;
 
+  // 2) bookings confermati per capire quali slot sono occupati
   const slotIds = futureOpen.map(s => s.id);
   const { data: bookedRows, error: e2 } = await supabase
     .from("bookings")
@@ -189,39 +139,109 @@ async function loadFreeSlotsFuture(){
     .in("slot_id", slotIds)
     .eq("status", "CONFIRMED");
 
-  if(e2) return showToast(slotToast, e2.message, "bad");
+  if(e2) return showToast(availToast, e2.message, "bad");
 
   const booked = new Set((bookedRows || []).map(b => b.slot_id));
-  const free = futureOpen.filter(s => !booked.has(s.id));
-  if(free.length === 0) return;
+  const freeSlots = futureOpen.filter(s => !booked.has(s.id));
+  if(freeSlots.length === 0) return;
 
-  const instructorIds = [...new Set(free.map(s => s.instructor_id).filter(Boolean))];
+  // 3) nomi istruttori
+  const instructorIds = [...new Set(freeSlots.map(s => s.instructor_id).filter(Boolean))];
   const profMap = await fetchProfilesMap(instructorIds);
 
-  free.forEach(s => {
-    const instr = profMap.get(s.instructor_id)?.full_name || "Istruttore";
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <div>
-        <strong>${fmtDateIT(s.day)} • ${fmtTime(s.start_time)}–${fmtTime(s.end_time)}</strong>
-        <div class="meta">${instr}</div>
-      </div>
-      <button class="btn primary">Prenota</button>
+  // 4) group per instructor+day
+  const groups = new Map();
+  for(const s of freeSlots){
+    const p = profMap.get(s.instructor_id);
+    const name = p?.full_name || "Istruttore";
+    const key = `${s.instructor_id}||${s.day}`;
+    if(!groups.has(key)){
+      groups.set(key, { instructor_id: s.instructor_id, name, day: s.day, slots: [] });
+    }
+    groups.get(key).slots.push(s);
+  }
+
+  // 5) render accordion
+  [...groups.values()].forEach(g => {
+    // header “Nome — data — N slot disponibili”
+    const wrapper = document.createElement("div");
+    wrapper.className = "item";
+    wrapper.style.cursor = "pointer";
+    wrapper.dataset.open = "0";
+
+    const header = document.createElement("div");
+    header.style.flex = "1";
+    header.innerHTML = `
+      <strong>${g.name}</strong>
+      <div class="meta">${fmtDateIT(g.day)} • ${g.slots.length} slot disponibili</div>
     `;
 
-    div.querySelector("button").addEventListener("click", async () => {
-      hideToast(slotToast);
-      const { error } = await supabase.from("bookings").insert({
-        slot_id: s.id,
-        volunteer_id: currentUser.id,
-        status: "CONFIRMED"
+    const caret = document.createElement("div");
+    caret.className = "badge";
+    caret.textContent = "Apri ▾";
+
+    wrapper.appendChild(header);
+    wrapper.appendChild(caret);
+
+    // pannello interno (nascosto)
+    const panel = document.createElement("div");
+    panel.style.display = "none";
+    panel.style.marginTop = "12px";
+    panel.style.width = "100%";
+
+    const panelList = document.createElement("div");
+    panelList.className = "list";
+    panelList.style.marginTop = "0";
+
+    // ordina slot per orario
+    g.slots.sort((a,b) => (a.start_time||"").localeCompare(b.start_time||""));
+
+    g.slots.forEach(s => {
+      const row = document.createElement("div");
+      row.className = "item";
+      row.style.background = "rgba(255,255,255,.02)";
+      row.innerHTML = `
+        <div>
+          <strong>${fmtTime(s.start_time)}–${fmtTime(s.end_time)}</strong>
+          <div class="meta">${fmtDateIT(s.day)}</div>
+        </div>
+        <button class="btn primary">Prenota</button>
+      `;
+
+      row.querySelector("button").addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        const { error } = await supabase.from("bookings").insert({
+          slot_id: s.id,
+          volunteer_id: currentUser.id,
+          status: "CONFIRMED"
+        });
+        if(error) showToast(availToast, error.message, "bad");
+        else {
+          showToast(availToast, "Prenotazione confermata ✅", "ok");
+          await refreshAll();
+        }
       });
-      if(error) showToast(slotToast, error.message, "bad");
-      else { showToast(slotToast, "Prenotazione confermata ✅", "ok"); await refreshAll(); }
+
+      panelList.appendChild(row);
     });
 
-    slotList.appendChild(div);
+    panel.appendChild(panelList);
+
+    // metti panel sotto wrapper (serve un contenitore)
+    const container = document.createElement("div");
+    container.style.display = "block";
+    container.style.width = "100%";
+    container.appendChild(wrapper);
+    container.appendChild(panel);
+
+    wrapper.addEventListener("click", () => {
+      const isOpen = wrapper.dataset.open === "1";
+      wrapper.dataset.open = isOpen ? "0" : "1";
+      panel.style.display = isOpen ? "none" : "block";
+      caret.textContent = isOpen ? "Apri ▾" : "Chiudi ▴";
+    });
+
+    availList.appendChild(container);
   });
 }
 
@@ -252,9 +272,9 @@ async function loadMyBookingsFuture(){
     const s = slotById.get(r.slot_id);
     return s && isFutureSlot(s);
   });
-
   if(future.length === 0) return;
 
+  // nomi istruttori
   const instructorIds = [...new Set(future.map(r => slotById.get(r.slot_id).instructor_id).filter(Boolean))];
   const profMap = await fetchProfilesMap(instructorIds);
 
@@ -335,8 +355,7 @@ async function loadInstructorBookingsFuture(){
 }
 
 async function refreshAll(){
-  await loadInstructorAvailabilityFuture();
-  await loadFreeSlotsFuture();
+  await loadAvailabilityAccordion();
 
   if(role === "instructor" || role === "admin"){
     myBox.style.display = "none";
@@ -367,7 +386,6 @@ refreshBtn.addEventListener("click", refreshAll);
   }
 
   currentUser = data.session.user;
-
   const prof = await ensureProfile();
   role = prof?.role ?? "volunteer";
 

@@ -70,30 +70,29 @@
         <div id="profileToast" class="toast" style="display:none;"></div>
       </div>
 
+      <!-- Accordion: disponibilità + prenota -->
       <div class="card" style="margin-top:14px;">
-        <h2>Disponibilità istruttori</h2>
-        <div class="muted">Solo disponibilità future (oggi e prossimi giorni).</div>
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <h2 style="margin:0;">Disponibilità istruttori</h2>
+            <div class="muted">Clicca su un istruttore/giorno per aprire gli slot liberi e prenotare.</div>
+          </div>
+          <button id="refreshBtn" class="btn">Aggiorna</button>
+        </div>
+
         <div id="availToast" class="toast" style="display:none;"></div>
         <div id="availList" class="list"></div>
       </div>
 
-      <div class="card" style="margin-top:14px;">
-        <h2>Prenota uno slot</h2>
-        <div class="muted">Mostra solo slot futuri liberi.</div>
-        <div class="row" style="margin-top:12px;">
-          <button id="refreshBtn" class="btn">Aggiorna</button>
-        </div>
-        <div id="slotToast" class="toast" style="display:none;"></div>
-        <div id="slotList" class="list"></div>
-      </div>
-
+      <!-- Volontari: solo prenotazioni future -->
       <div id="myBox" class="card" style="margin-top:14px;">
         <h2>Le mie prenotazioni</h2>
-        <div class="muted">Vedi e annulla le prenotazioni effettuate.</div>
+        <div class="muted">Vedi e annulla le prenotazioni future.</div>
         <div id="myToast" class="toast" style="display:none;"></div>
         <div id="myList" class="list"></div>
       </div>
 
+      <!-- Istruttori: iscritti futuri -->
       <div id="instrBox" class="card" style="margin-top:14px; display:none;">
         <h2>Iscritti ai miei slot</h2>
         <div class="muted">Solo iscritti futuri (nome e telefono).</div>

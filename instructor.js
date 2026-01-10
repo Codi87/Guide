@@ -58,24 +58,25 @@ async function loadMyFutureSlots(){
         <div class="meta">Stato: ${s.status}</div>
       </div>
       <div class="row">
-        <button class="btn">${s.status === "OPEN" ? "Chiudi" : "Apri"}</button>
-        <button class="btn danger">Elimina</button>
+        <button class="btn" data-action="toggle"> ${s.status === "OPEN" ? "Chiudi" : "Apri"} </button>
+        <button class="btn danger" data-action="delete">Elimina</button>
       </div>
     `;
 
-    const [toggleBtn, delBtn] = div.querySelectorAll("button");
-
-    toggleBtn.addEventListener("click", async () => {
+    div.querySelector('[data-action="toggle"]').addEventListener("click", async () => {
+      show(listToast, "Aggiorno…", "");
       const next = s.status === "OPEN" ? "CLOSED" : "OPEN";
       const { error } = await supabase.from("slots").update({ status: next }).eq("id", s.id);
       if(error) show(listToast, error.message, "bad");
       else { show(listToast, "Aggiornato ✅", "ok"); await loadMyFutureSlots(); }
     });
 
-    delBtn.addEventListener("click", async () => {
+    div.querySelector('[data-action="delete"]').addEventListener("click", async () => {
+      if(!confirm("Vuoi eliminare questa disponibilità?")) return;
+      show(listToast, "Elimino…", "");
       const { error } = await supabase.from("slots").delete().eq("id", s.id);
       if(error) show(listToast, error.message, "bad");
-      else { show(listToast, "Eliminato.", ""); await loadMyFutureSlots(); }
+      else { show(listToast, "Eliminato ✅", "ok"); await loadMyFutureSlots(); }
     });
 
     slotList.appendChild(div);
@@ -107,9 +108,14 @@ createBtn.addEventListener("click", async () => {
   }
   if(rows.length === 0) return show(toast, "Nessuno slot creato: controlla durata/fascia.", "bad");
 
-  const { error } = await supabase.from("slots").insert(rows);
+  // UPSERT con vincolo unico: non duplica mai
+  show(toast, "Creo disponibilità…", "");
+  const { error } = await supabase
+    .from("slots")
+    .upsert(rows, { onConflict: "instructor_id,day,start_time,end_time" });
+
   if(error) show(toast, error.message, "bad");
-  else { show(toast, `Creati ${rows.length} slot ✅`, "ok"); await loadMyFutureSlots(); }
+  else { show(toast, `Disponibilità aggiornata ✅ (${rows.length} slot)`, "ok"); await loadMyFutureSlots(); }
 });
 
 (async () => {
