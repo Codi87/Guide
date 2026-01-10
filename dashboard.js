@@ -45,14 +45,11 @@ function todayISO(){ return new Date().toISOString().slice(0,10); }
 async function sendOtp(email){
   loginBtn.disabled = true;
   showToast(loginToast, "Invio link…", "");
-
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: { emailRedirectTo: `${window.location.origin}/dashboard.html` }
   });
-
   loginBtn.disabled = false;
-
   if(error) showToast(loginToast, error.message, "bad");
   else showToast(loginToast, "Link inviato ✅ Controlla email (anche Spam) e clicca per entrare.", "ok");
 }
@@ -67,18 +64,30 @@ loginBtn.addEventListener("click", async () => {
 let currentUser = null;
 let role = "volunteer";
 
+// Helpers: carica nomi istruttori per un set di ids
+async function fetchProfilesMap(userIds){
+  const map = new Map();
+  if(!userIds || userIds.length === 0) return map;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("user_id, full_name, phone, role")
+    .in("user_id", userIds);
+
+  if(error) return map;
+
+  (data || []).forEach(p => map.set(p.user_id, p));
+  return map;
+}
+
 function mergeRanges(slots){
-  // slots: [{start_time,end_time}] -> unisci contigui
   const toMin = (t)=>{ const [h,m]=t.slice(0,5).split(":").map(Number); return h*60+m; };
   const toTime = (m)=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
   const arr = slots.map(s=>({a:toMin(s.start_time), b:toMin(s.end_time)})).sort((x,y)=>x.a-y.a);
   const out = [];
   for(const r of arr){
-    if(out.length===0 || r.a>out[out.length-1].b){
-      out.push({...r});
-    } else {
-      out[out.length-1].b = Math.max(out[out.length-1].b, r.b);
-    }
+    if(out.length===0 || r.a>out[out.length-1].b) out.push({...r});
+    else out[out.length-1].b = Math.max(out[out.length-1].b, r.b);
   }
   return out.map(r=>`${toTime(r.a)}–${toTime(r.b)}`);
 }
@@ -99,10 +108,8 @@ async function loadProfileToUI(){
 
 saveProfileBtn.addEventListener("click", async () => {
   hideToast(profileToast);
-
   const full_name = (fullNameEl.value || "").trim();
   const phone = (phoneEl.value || "").trim();
-
   if(!full_name) return showToast(profileToast, "Inserisci Nome e Cognome.", "bad");
 
   const { error } = await supabase
@@ -117,29 +124,31 @@ saveProfileBtn.addEventListener("click", async () => {
 async function loadInstructorAvailability(){
   hideToast(availToast);
   availList.innerHTML = "";
-
   const day = dayEl.value;
 
-  const { data, error } = await supabase
+  const { data: slots, error } = await supabase
     .from("slots")
-    .select("id, day, start_time, end_time, instructor:profiles(full_name)")
+    .select("id, day, start_time, end_time, instructor_id, status")
     .eq("day", day)
     .eq("status", "OPEN")
     .order("start_time");
 
   if(error) return showToast(availToast, error.message, "bad");
-  if(!data || data.length === 0) return showToast(availToast, "Nessuna disponibilità per questo giorno.", "");
+  if(!slots || slots.length === 0) return showToast(availToast, "Nessuna disponibilità per questo giorno.", "");
 
-  // raggruppa per istruttore e unisci fasce
-  const by = new Map();
-  for(const s of data){
-    const name = s.instructor?.full_name ?? "Istruttore";
-    if(!by.has(name)) by.set(name, []);
-    by.get(name).push(s);
+  const instructorIds = [...new Set(slots.map(s => s.instructor_id).filter(Boolean))];
+  const profMap = await fetchProfilesMap(instructorIds);
+
+  const byName = new Map();
+  for(const s of slots){
+    const p = profMap.get(s.instructor_id);
+    const name = p?.full_name || "Istruttore";
+    if(!byName.has(name)) byName.set(name, []);
+    byName.get(name).push(s);
   }
 
-  for(const [name, slots] of by.entries()){
-    const ranges = mergeRanges(slots);
+  for(const [name, group] of byName.entries()){
+    const ranges = mergeRanges(group);
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
@@ -147,7 +156,7 @@ async function loadInstructorAvailability(){
         <strong>${name}</strong>
         <div class="meta">${fmtDateIT(day)} — ${ranges.join(", ")}</div>
       </div>
-      <span class="badge">${slots.length} slot</span>
+      <span class="badge">${group.length} slot</span>
     `;
     availList.appendChild(div);
   }
@@ -156,37 +165,37 @@ async function loadInstructorAvailability(){
 async function loadSlots(){
   hideToast(slotToast);
   slotList.innerHTML = "";
-
   const day = dayEl.value;
 
   const { data: slots, error: e1 } = await supabase
     .from("slots")
-    .select("id, day, start_time, end_time, status, instructor:profiles(full_name)")
+    .select("id, day, start_time, end_time, instructor_id, status")
     .eq("day", day)
     .eq("status", "OPEN")
     .order("start_time");
 
   if(e1) return showToast(slotToast, e1.message, "bad");
-  if(!slots || slots.length === 0){
-    return showToast(slotToast, "Nessuno slot disponibile per questo giorno.", "");
-  }
+  if(!slots || slots.length === 0) return showToast(slotToast, "Nessuno slot disponibile per questo giorno.", "");
 
+  // quali sono già prenotati
   const slotIds = slots.map(s => s.id);
-  const { data: bookings, error: e2 } = await supabase
+  const { data: bookedRows, error: e2 } = await supabase
     .from("bookings")
-    .select("slot_id, status")
+    .select("slot_id")
     .in("slot_id", slotIds)
     .eq("status", "CONFIRMED");
 
   if(e2) return showToast(slotToast, e2.message, "bad");
+  const booked = new Set((bookedRows || []).map(b => b.slot_id));
 
-  const booked = new Set((bookings || []).map(b => b.slot_id));
   const free = slots.filter(s => !booked.has(s.id));
-
   if(free.length === 0) return showToast(slotToast, "Tutti gli slot sono già prenotati.", "");
 
+  const instructorIds = [...new Set(free.map(s => s.instructor_id).filter(Boolean))];
+  const profMap = await fetchProfilesMap(instructorIds);
+
   free.forEach(s => {
-    const instr = s.instructor?.full_name ?? "Istruttore";
+    const instr = profMap.get(s.instructor_id)?.full_name || "Istruttore";
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
@@ -199,18 +208,13 @@ async function loadSlots(){
 
     div.querySelector("button").addEventListener("click", async () => {
       hideToast(slotToast);
-
       const { error } = await supabase.from("bookings").insert({
         slot_id: s.id,
         volunteer_id: currentUser.id,
         status: "CONFIRMED"
       });
-
       if(error) showToast(slotToast, error.message, "bad");
-      else {
-        showToast(slotToast, "Prenotazione confermata ✅", "ok");
-        await refreshAll();
-      }
+      else { showToast(slotToast, "Prenotazione confermata ✅", "ok"); await refreshAll(); }
     });
 
     slotList.appendChild(div);
@@ -221,23 +225,36 @@ async function loadMyBookings(){
   hideToast(myToast);
   myList.innerHTML = "";
 
-  const { data, error } = await supabase
+  const { data: rows, error } = await supabase
     .from("bookings")
-    .select("id, status, created_at, slot:slots(day, start_time, end_time, instructor:profiles(full_name))")
+    .select("id, status, created_at, slot_id")
     .eq("volunteer_id", currentUser.id)
     .order("created_at", { ascending:false });
 
   if(error) return showToast(myToast, error.message, "bad");
-  if(!data || data.length === 0) return showToast(myToast, "Nessuna prenotazione.", "");
+  if(!rows || rows.length === 0) return showToast(myToast, "Nessuna prenotazione.", "");
 
-  data.forEach(r => {
-    const slot = r.slot || {};
-    const instr = slot.instructor?.full_name ?? "Istruttore";
+  const slotIds = [...new Set(rows.map(r => r.slot_id))];
+  const { data: slots, error: sErr } = await supabase
+    .from("slots")
+    .select("id, day, start_time, end_time, instructor_id")
+    .in("id", slotIds);
+
+  if(sErr) return showToast(myToast, sErr.message, "bad");
+
+  const slotById = new Map((slots || []).map(s => [s.id, s]));
+  const instructorIds = [...new Set((slots || []).map(s => s.instructor_id).filter(Boolean))];
+  const profMap = await fetchProfilesMap(instructorIds);
+
+  rows.forEach(r => {
+    const s = slotById.get(r.slot_id);
+    const instr = s ? (profMap.get(s.instructor_id)?.full_name || "Istruttore") : "—";
+
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
       <div>
-        <strong>${fmtDateIT(slot.day)} • ${fmtTime(slot.start_time)}–${fmtTime(slot.end_time)}</strong>
+        <strong>${s ? `${fmtDateIT(s.day)} • ${fmtTime(s.start_time)}–${fmtTime(s.end_time)}` : "Slot"}</strong>
         <div class="meta">${instr} • Stato: ${r.status}</div>
       </div>
       <button class="btn danger" ${r.status !== "CONFIRMED" ? "disabled" : ""}>Annulla</button>
@@ -260,31 +277,50 @@ async function loadInstructorBookings(){
 
   const day = dayEl.value;
 
-  const { data, error } = await supabase
+  // 1) prendo slot dell’istruttore nel giorno
+  const { data: slots, error: sErr } = await supabase
+    .from("slots")
+    .select("id, day, start_time, end_time")
+    .eq("instructor_id", currentUser.id)
+    .eq("day", day)
+    .order("start_time");
+
+  if(sErr) return showToast(instrToast, sErr.message, "bad");
+  if(!slots || slots.length === 0) return showToast(instrToast, "Nessuno slot in questo giorno.", "");
+
+  const slotById = new Map(slots.map(s => [s.id, s]));
+  const slotIds = slots.map(s => s.id);
+
+  // 2) prenotazioni confermate su quei slot
+  const { data: bookings, error: bErr } = await supabase
     .from("bookings")
-    .select("id, status, slot:slots(day, start_time, end_time, instructor_id), volunteer:profiles(full_name, phone)")
+    .select("id, slot_id, volunteer_id, status, created_at")
+    .in("slot_id", slotIds)
     .eq("status", "CONFIRMED")
-    .eq("slot.instructor_id", currentUser.id)
-    .eq("slot.day", day)
     .order("created_at", { ascending:true });
 
-  if(error) return showToast(instrToast, error.message, "bad");
-  if(!data || data.length === 0) return showToast(instrToast, "Nessun iscritto per questo giorno.", "");
+  if(bErr) return showToast(instrToast, bErr.message, "bad");
+  if(!bookings || bookings.length === 0) return showToast(instrToast, "Nessun iscritto per questo giorno.", "");
 
-  data.forEach(b => {
-    const s = b.slot || {};
-    const v = b.volunteer || {};
-    const name = v.full_name ?? "—";
-    const phone = v.phone ?? "—";
+  // 3) profili volontari (nome+telefono) — permessi dalla policy
+  const volunteerIds = [...new Set(bookings.map(b => b.volunteer_id).filter(Boolean))];
+  const profMap = await fetchProfilesMap(volunteerIds);
+
+  // 4) render
+  bookings.forEach(b => {
+    const s = slotById.get(b.slot_id);
+    const p = profMap.get(b.volunteer_id);
+    const name = p?.full_name || "—";
+    const phone = p?.phone || "—";
 
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
       <div>
-        <strong>${fmtTime(s.start_time)}–${fmtTime(s.end_time)} • ${name}</strong>
+        <strong>${s ? `${fmtTime(s.start_time)}–${fmtTime(s.end_time)}` : "Slot"} • ${name}</strong>
         <div class="meta">Telefono: ${phone}</div>
       </div>
-      <span class="badge">${fmtDateIT(s.day)}</span>
+      <span class="badge">${fmtDateIT(day)}</span>
     `;
     instrList.appendChild(div);
   });
@@ -300,7 +336,7 @@ async function refreshAll(){
 }
 
 refreshBtn.addEventListener("click", refreshAll);
-dayEl?.addEventListener("change", refreshAll);
+dayEl.addEventListener("change", refreshAll);
 
 (async () => {
   const last = localStorage.getItem("last_email");
@@ -314,6 +350,7 @@ dayEl?.addEventListener("change", refreshAll);
     roleBadge.style.display = "none";
     logoutBtn.style.display = "none";
     instrLink.style.display = "none";
+    instrBox.style.display = "none";
     return;
   }
 
@@ -332,7 +369,6 @@ dayEl?.addEventListener("change", refreshAll);
 
   dayEl.value = todayISO();
 
-  // link e box istruttore
   if(role === "instructor" || role === "admin"){
     instrLink.style.display = "inline-flex";
     instrBox.style.display = "block";
