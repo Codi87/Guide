@@ -120,12 +120,13 @@ label{font-size:13px; color:var(--muted)}
 .item strong{font-size:15px}
 .item .meta{color:var(--muted); font-size:13px}
 
-/* ======= ACCENTO SOLO PER "DURATA" ======= */
-.input-accent{
-  background: rgba(124,92,255,.18) !important; /* viola */
-  border-color: rgba(124,92,255,.35) !important;
-  box-shadow: 0 0 0 4px rgba(124,92,255,.10);
+/* ===== FIX: tendina "Durata" (sfondo scuro, testo chiaro) ===== */
+/* Nota: su alcuni browser le option sono poco personalizzabili,
+   ma su Windows/Chrome questa regola risolve quasi sempre. */
+#duration option{
+  background-color: #0b0f17;
+  color: #eaf0ff;
 }
-.input-accent:focus{
-  box-shadow: 0 0 0 4px rgba(124,92,255,.18);
+#duration{
+  color-scheme: dark; /* aiuta il browser a usare UI scura */
 }
