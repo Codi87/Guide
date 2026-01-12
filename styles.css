@@ -119,4 +119,13 @@ label{font-size:13px; color:var(--muted)}
 }
 .item strong{font-size:15px}
 .item .meta{color:var(--muted); font-size:13px}
-.footer-note{margin-top:18px; color:var(--muted); font-size:13px}
+
+/* ======= ACCENTO SOLO PER "DURATA" ======= */
+.input-accent{
+  background: rgba(124,92,255,.18) !important; /* viola */
+  border-color: rgba(124,92,255,.35) !important;
+  box-shadow: 0 0 0 4px rgba(124,92,255,.10);
+}
+.input-accent:focus{
+  box-shadow: 0 0 0 4px rgba(124,92,255,.18);
+}

@@ -33,6 +33,7 @@
             <label>Giorno</label>
             <input id="day" class="input" type="date" />
           </div>
+
           <div class="grid grid-2">
             <div class="field">
               <label>Inizio</label>
@@ -43,14 +44,17 @@
               <input id="end" class="input" type="time" value="12:00" />
             </div>
           </div>
+
           <div class="field">
             <label>Durata slot (minuti)</label>
-            <select id="duration" class="input">
+            <!-- evidenziato -->
+            <select id="duration" class="input input-accent">
               <option value="30">30</option>
               <option value="60" selected>60</option>
               <option value="90">90</option>
             </select>
           </div>
+
           <button id="createBtn" class="btn primary">Crea slot</button>
           <div id="toast" class="toast" style="display:none;"></div>
         </div>
