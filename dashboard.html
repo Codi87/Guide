@@ -50,7 +50,7 @@
 
       <div class="card" style="margin-top:14px;">
         <h2>Il tuo profilo</h2>
-        <div class="muted">Nome e telefono saranno visibili agli istruttori solo quando prenoti un loro slot.</div>
+        <div class="muted">Nome e telefono saranno visibili agli istruttori quando prenoti uno slot.</div>
 
         <div class="grid grid-2" style="margin-top:12px;">
           <div class="field">
@@ -70,7 +70,6 @@
         <div id="profileToast" class="toast" style="display:none;"></div>
       </div>
 
-      <!-- Accordion: disponibilità + prenota -->
       <div class="card" style="margin-top:14px;">
         <div class="row" style="justify-content:space-between;">
           <div>
@@ -84,7 +83,6 @@
         <div id="availList" class="list"></div>
       </div>
 
-      <!-- Volontari: solo prenotazioni future -->
       <div id="myBox" class="card" style="margin-top:14px;">
         <h2>Le mie prenotazioni</h2>
         <div class="muted">Vedi e annulla le prenotazioni future.</div>
@@ -92,13 +90,28 @@
         <div id="myList" class="list"></div>
       </div>
 
-      <!-- Istruttori: iscritti futuri -->
       <div id="instrBox" class="card" style="margin-top:14px; display:none;">
         <h2>Iscritti ai miei slot</h2>
         <div class="muted">Solo iscritti futuri (nome e telefono).</div>
         <div id="instrToast" class="toast" style="display:none;"></div>
         <div id="instrList" class="list"></div>
       </div>
+
+      <div id="checklistBox" class="card" style="margin-top:14px; display:none;">
+        <h2>Ragazzi & Checklist</h2>
+        <div class="muted">Visibile solo agli istruttori. Seleziona un volontario e spunta le attività svolte.</div>
+
+        <div class="grid" style="margin-top:12px;">
+          <div class="field">
+            <label>Cerca volontario</label>
+            <input id="volSearch" class="input" placeholder="Scrivi un nome..." />
+          </div>
+        </div>
+
+        <div id="checkToast" class="toast" style="display:none;"></div>
+        <div id="volList" class="list"></div>
+      </div>
+
     </div>
   </div>
 

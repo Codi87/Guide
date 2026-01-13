@@ -58,7 +58,7 @@ async function loadMyFutureSlots(){
         <div class="meta">Stato: ${s.status}</div>
       </div>
       <div class="row">
-        <button class="btn" data-action="toggle"> ${s.status === "OPEN" ? "Chiudi" : "Apri"} </button>
+        <button class="btn" data-action="toggle">${s.status === "OPEN" ? "Chiudi" : "Apri"}</button>
         <button class="btn danger" data-action="delete">Elimina</button>
       </div>
     `;
@@ -108,8 +108,9 @@ createBtn.addEventListener("click", async () => {
   }
   if(rows.length === 0) return show(toast, "Nessuno slot creato: controlla durata/fascia.", "bad");
 
-  // UPSERT con vincolo unico: non duplica mai
   show(toast, "Creo disponibilità…", "");
+
+  // UP SERT (richiede indice unico: instructor_id,day,start_time,end_time)
   const { error } = await supabase
     .from("slots")
     .upsert(rows, { onConflict: "instructor_id,day,start_time,end_time" });

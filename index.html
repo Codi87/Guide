@@ -20,7 +20,7 @@
 
     <section class="hero">
       <h1>Guide CRI Pesaro</h1>
-      <p>Prenota le guide negli slot disponibili. Gli istruttori inseriscono disponibilità e gestiscono gli iscritti.</p>
+      <p>Prenota le guide negli slot disponibili. Gli istruttori inseriscono disponibilità e gestiscono iscritti e checklist.</p>
       <div class="row" style="margin-top:16px;">
         <a class="btn primary" href="/dashboard.html">Entra</a>
       </div>
@@ -29,7 +29,7 @@
     <div class="grid grid-2" style="margin-top:14px;">
       <div class="card">
         <h2>Istruttori</h2>
-        <div class="muted">Contatti istruttori (nome e telefono).</div>
+        <div class="muted">Nome e telefono degli istruttori (da tabella profiles).</div>
         <div id="instrToast" class="toast" style="display:none;"></div>
         <div id="instrList" class="list"></div>
       </div>
@@ -37,7 +37,7 @@
       <div class="card">
         <h2>Come funziona</h2>
         <div class="muted">
-          1) Accedi con email • 2) Inserisci Nome e Telefono • 3) Prenota uno slot libero.
+          1) Accedi con email • 2) Compila Nome e Telefono • 3) Prenota uno slot libero.
         </div>
       </div>
     </div>
@@ -45,7 +45,6 @@
 
   <script type="module">
     import { supabase } from "/app.js";
-
     const list = document.querySelector("#instrList");
     const toast = document.querySelector("#instrToast");
 

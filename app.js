@@ -3,7 +3,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 export const SUPABASE_URL = "https://nxlxsjluohhxljeaqosl.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_ehlGQkGpo18gxWYheS1CRA_9QIdDX_J";
 
-// dominio fisso (per redirect OTP stabile su Vercel)
+// dominio fisso per redirect OTP (Vercel)
 export const SITE_ORIGIN = "https://guide-rouge.vercel.app";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -29,6 +29,7 @@ export async function logout(){
   await supabase.auth.signOut();
   window.location.href = "/";
 }
+
 export async function ensureProfile(){
   const { data: u } = await supabase.auth.getUser();
   const user = u.user;
@@ -36,7 +37,7 @@ export async function ensureProfile(){
 
   const { data: existing } = await supabase
     .from("profiles")
-    .select("role, full_name, phone")
+    .select("role, full_name, phone, email")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -45,13 +46,17 @@ export async function ensureProfile(){
       user_id: user.id,
       full_name: user.email,
       phone: null,
+      email: user.email,
       role: "volunteer",
     });
+  } else if(!existing.email) {
+    // aggiorna email se manca
+    await supabase.from("profiles").update({ email: user.email }).eq("user_id", user.id);
   }
 
   const { data: prof } = await supabase
     .from("profiles")
-    .select("role, full_name, phone")
+    .select("role, full_name, phone, email")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -59,6 +64,7 @@ export async function ensureProfile(){
     user,
     role: prof?.role ?? "volunteer",
     full_name: prof?.full_name ?? user.email,
-    phone: prof?.phone ?? ""
+    phone: prof?.phone ?? "",
+    email: prof?.email ?? user.email
   };
 }
